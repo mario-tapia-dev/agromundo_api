@@ -1,5 +1,5 @@
 from flask import Flask
-from app.routes import clientes, productos, almacenes, inventario, ventas, usuarios
+from app.routes import clientes, productos, almacenes, inventario, ventas, usuarios, categorias, subcategorias
 
 def create_app():
     """
@@ -16,5 +16,7 @@ def create_app():
     app.register_blueprint(inventario.bp)
     app.register_blueprint(ventas.bp)
     app.register_blueprint(usuarios.bp)
+    app.register_blueprint(categorias.bp)
+    app.register_blueprint(subcategorias.bp)
 
     return app
