@@ -10,13 +10,13 @@ def create_app():
     app = Flask(__name__)
 
     # Registrar los blueprints (módulos de rutas)
-    app.register_blueprint(clientes.bp)
-    app.register_blueprint(productos.bp)
-    app.register_blueprint(almacenes.bp)
-    app.register_blueprint(inventario.bp)
-    app.register_blueprint(ventas.bp)
-    app.register_blueprint(usuarios.bp)
-    app.register_blueprint(categorias.bp)
-    app.register_blueprint(subcategorias.bp)
+    app.register_blueprint(clientes.bp, url_prefix="/api")
+    app.register_blueprint(productos.bp, url_prefix="/api")
+    app.register_blueprint(almacenes.bp, url_prefix="/api")
+    app.register_blueprint(inventario.bp, url_prefix="/api")
+    app.register_blueprint(ventas.bp, url_prefix="/api")
+    app.register_blueprint(usuarios.bp, url_prefix="/api")
+    app.register_blueprint(categorias.bp, url_prefix="/api")
+    app.register_blueprint(subcategorias.bp, url_prefix="/api")
 
     return app
