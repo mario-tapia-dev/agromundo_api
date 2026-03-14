@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
 
-bp = Blueprint("clientes", __name__, url_prefix="/clientes")
+bp = Blueprint("clientes", __name__)
 
 
 # ─────────────────────────────────────────

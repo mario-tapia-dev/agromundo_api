@@ -1,2 +1,2 @@
 from flask import Blueprint
-bp = Blueprint("almacenes", __name__, url_prefix="/almacenes")
+bp = Blueprint("almacenes", __name__)
