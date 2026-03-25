@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from app.routes import clientes, productos, almacenes, inventario, ventas, usuarios, categorias, subcategorias
 
 def create_app():
@@ -8,6 +9,7 @@ def create_app():
     Esto facilita las pruebas y la configuración.
     """
     app = Flask(__name__)
+    CORS(app)
     app.json.ensure_ascii = False
 
     # Registrar los blueprints (módulos de rutas)
