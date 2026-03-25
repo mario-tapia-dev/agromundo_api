@@ -8,6 +8,7 @@ def create_app():
     Esto facilita las pruebas y la configuración.
     """
     app = Flask(__name__)
+    app.json.ensure_ascii = False
 
     # Registrar los blueprints (módulos de rutas)
     app.register_blueprint(clientes.bp, url_prefix="/api/clientes")
