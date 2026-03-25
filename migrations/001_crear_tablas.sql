@@ -16,13 +16,13 @@ CREATE TABLE usuarios (
 );
 
 -- Estados
-CREATE TABLE estado (
+CREATE TABLE estados (
     id_estado SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL
 );
 
 -- Municipios
-CREATE TABLE municipio (
+CREATE TABLE municipios (
     id_municipio SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     id_estado INTEGER REFERENCES estado(id_estado)
@@ -42,13 +42,13 @@ CREATE TABLE clientes (
 );
 
 -- Categorias
-CREATE TABLE categoria (
+CREATE TABLE categorias (
     id_categoria SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL
 );
 
 -- Subcategorias
-CREATE TABLE subcategoria (
+CREATE TABLE subcategorias (
     id_subcategoria SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     descripcion VARCHAR(255),
@@ -66,14 +66,14 @@ CREATE TABLE productos (
 );
 
 -- Almacen
-CREATE TABLE almacen (
+CREATE TABLE almacenes (
     id_almacen SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     codigo VARCHAR(50)
 );
 
 -- Inventario
-CREATE TABLE inventario (
+CREATE TABLE inventarios (
     id_inventario SERIAL PRIMARY KEY,
     id_producto INTEGER REFERENCES productos(id_productos),
     id_almacen INTEGER REFERENCES almacen(id_almacen),
@@ -100,7 +100,7 @@ CREATE TABLE detalle_venta (
 );
 
 -- Movimientos de inventario
-CREATE TABLE movimientos_inventario (
+CREATE TABLE movimientos_inventarios (
     id_movimiento SERIAL PRIMARY KEY,
     tipo BOOLEAN NOT NULL,
     cantidad INTEGER,
