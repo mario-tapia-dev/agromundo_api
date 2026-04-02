@@ -64,6 +64,9 @@ def crear_categoria():
     try:
         data = request.get_json()
 
+        if data is None:
+            return error(message="El cuerpo debe ser un JSON válido", status=400)
+
         if not data.get("nombre"):
             return error(message="El campo 'nombre' es obligatorio", status=400)
 
