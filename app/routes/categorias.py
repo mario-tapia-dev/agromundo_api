@@ -15,9 +15,9 @@ def listar_categorias():
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("""
-            SELECT id_categoria, nombre
-            FROM categoria
-            ORDER BY id_categoria ASC
+            SELECT id_cat, nombre
+            FROM categorias
+            ORDER BY id_cat ASC
         """)
         categorias = cur.fetchall()
         return success(data=categorias, message="Categorías obtenidas correctamente")
@@ -32,17 +32,17 @@ def listar_categorias():
 # ─────────────────────────────────────────
 # GET /categorias/<id> → Detalle de una categoría
 # ─────────────────────────────────────────
-@bp.route("/<int:id_categoria>", methods=["GET"])
-def obtener_categoria(id_categoria):
+@bp.route("/<int:id_cat>", methods=["GET"])
+def obtener_categoria(id_cat):
     conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("""
-            SELECT id_categoria, nombre
-            FROM categoria
-            WHERE id_categoria = %s
-        """, (id_categoria,))
+            SELECT id_cat, nombre
+            FROM categorias
+            WHERE id_cat = %s
+        """, (id_cat,))
         categoria = cur.fetchone()
         if categoria is None:
             return error(message="Categoría no encontrada", status=404)
@@ -73,13 +73,13 @@ def crear_categoria():
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO categoria (nombre)
+            INSERT INTO categorias (nombre)
             VALUES (%s)
-            RETURNING id_categoria
+            RETURNING id_cat
         """, (data["nombre"],))
         conn.commit()
-        nuevo_id = cur.fetchone()["id_categoria"]
-        return success(data={"id_categoria": nuevo_id}, message="Categoría creada correctamente", status=201)
+        nuevo_id = cur.fetchone()["id_cat"]
+        return success(data={"id_cat": nuevo_id}, message="Categoría creada correctamente", status=201)
     except Exception as e:
         if conn:
             conn.rollback()
@@ -93,8 +93,8 @@ def crear_categoria():
 # ─────────────────────────────────────────
 # PUT /categorias/<id> → Actualizar una categoría
 # ─────────────────────────────────────────
-@bp.route("/<int:id_categoria>", methods=["PUT"])
-def actualizar_categoria(id_categoria):
+@bp.route("/<int:id_cat>", methods=["PUT"])
+def actualizar_categoria(id_cat):
     conn = None
     try:
         data = request.get_json()
@@ -105,14 +105,14 @@ def actualizar_categoria(id_categoria):
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT id_categoria FROM categoria WHERE id_categoria = %s", (id_categoria,))
+        cur.execute("SELECT id_cat FROM categorias WHERE id_cat = %s", (id_cat,))
         if cur.fetchone() is None:
             return error(message="Categoría no encontrada", status=404)
 
         cur.execute("""
-            UPDATE categoria SET nombre = %s
-            WHERE id_categoria = %s
-        """, (data["nombre"], id_categoria))
+            UPDATE categorias SET nombre = %s
+            WHERE id_cat = %s
+        """, (data["nombre"], id_cat))
         conn.commit()
         return success(message="Categoría actualizada correctamente")
     except Exception as e:
@@ -128,18 +128,18 @@ def actualizar_categoria(id_categoria):
 # ─────────────────────────────────────────
 # DELETE /categorias/<id> → Eliminar una categoría
 # ─────────────────────────────────────────
-@bp.route("/<int:id_categoria>", methods=["DELETE"])
-def eliminar_categoria(id_categoria):
+@bp.route("/<int:id_cat>", methods=["DELETE"])
+def eliminar_categoria(id_cat):
     conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT id_categoria FROM categoria WHERE id_categoria = %s", (id_categoria,))
+        cur.execute("SELECT id_cat FROM categorias WHERE id_cat = %s", (id_cat,))
         if cur.fetchone() is None:
             return error(message="Categoría no encontrada", status=404)
 
-        cur.execute("DELETE FROM categoria WHERE id_categoria = %s", (id_categoria,))
+        cur.execute("DELETE FROM categorias WHERE id_cat = %s", (id_cat,))
         conn.commit()
         return success(message="Categoría eliminada correctamente")
     except Exception as e:
