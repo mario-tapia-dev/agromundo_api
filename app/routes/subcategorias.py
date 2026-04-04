@@ -16,22 +16,22 @@ def listar_subcategorias():
         cur = conn.cursor()
         cur.execute("""
             SELECT
-                s.id_subcategoria,
+                s.id_subcat,
                 s.nombre,
                 s.descripcion,
                 s.valor_numerico,
                 s.unidad,
                 COALESCE(
                     JSON_AGG(
-                        JSON_BUILD_OBJECT('id_categoria', c.id_categoria, 'nombre', c.nombre)
-                    ) FILTER (WHERE c.id_categoria IS NOT NULL),
+                        JSON_BUILD_OBJECT('id_cat', c.id_cat, 'nombre', c.nombre)
+                    ) FILTER (WHERE c.id_cat IS NOT NULL),
                     '[]'
-                ) AS categorias
-            FROM subcategoria s
-            LEFT JOIN categoria_subcategoria cs ON s.id_subcategoria = cs.id_subcategoria
-            LEFT JOIN categoria c ON cs.id_categoria = c.id_categoria
-            GROUP BY s.id_subcategoria
-            ORDER BY s.id_subcategoria ASC
+                ) AS categorias 
+            FROM subcategorias s
+            LEFT JOIN categoria_subcategoria cs ON s.id_subcat = cs.id_subcat
+            LEFT JOIN categorias c ON cs.id_cat = c.id_cat
+            GROUP BY s.id_subcat
+            ORDER BY s.id_subcat ASC
         """)
         subcategorias = cur.fetchall()
         return success(data=subcategorias, message="Subcategorías obtenidas correctamente")
@@ -46,31 +46,31 @@ def listar_subcategorias():
 # ─────────────────────────────────────────
 # GET /subcategorias/<id> → Detalle de una subcategoría
 # ─────────────────────────────────────────
-@bp.route("/<int:id_subcategoria>", methods=["GET"])
-def obtener_subcategoria(id_subcategoria):
+@bp.route("/<int:id_subcat>", methods=["GET"])
+def obtener_subcategoria(id_subcat):
     conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("""
             SELECT
-                s.id_subcategoria,
+                s.id_subcat,
                 s.nombre,
                 s.descripcion,
                 s.valor_numerico,
                 s.unidad,
                 COALESCE(
                     JSON_AGG(
-                        JSON_BUILD_OBJECT('id_categoria', c.id_categoria, 'nombre', c.nombre)
-                    ) FILTER (WHERE c.id_categoria IS NOT NULL),
+                        JSON_BUILD_OBJECT('id_cat', c.id_cat, 'nombre', c.nombre)
+                    ) FILTER (WHERE c.id_cat IS NOT NULL),
                     '[]'
                 ) AS categorias
-            FROM subcategoria s
-            LEFT JOIN categoria_subcategoria cs ON s.id_subcategoria = cs.id_subcategoria
-            LEFT JOIN categoria c ON cs.id_categoria = c.id_categoria
-            WHERE s.id_subcategoria = %s
-            GROUP BY s.id_subcategoria
-        """, (id_subcategoria,))
+            FROM subcategorias s
+            LEFT JOIN categoria_subcategoria cs ON s.id_subcat = cs.id_subcat
+            LEFT JOIN categorias c ON cs.id_cat = c.id_cat
+            WHERE s.id_subcat = %s
+            GROUP BY s.id_subcat
+        """, (id_subcat,))
         subcategoria = cur.fetchone()
         if subcategoria is None:
             return error(message="Subcategoría no encontrada", status=404)
@@ -106,23 +106,23 @@ def crear_subcategoria():
 
         # Insertar la subcategoría
         cur.execute("""
-            INSERT INTO subcategoria (nombre, descripcion, valor_numerico, unidad)
+            INSERT INTO subcategorias (nombre, descripcion, valor_numerico, unidad)
             VALUES (%s, %s, %s, %s)
-            RETURNING id_subcategoria
+            RETURNING id_subcat
         """, (
             data["nombre"],
             data.get("descripcion"),
             data.get("valor_numerico"),
             data.get("unidad")
         ))
-        nuevo_id = cur.fetchone()["id_subcategoria"]
+        nuevo_id = cur.fetchone()["id_subcat"]
 
         # Insertar relaciones con categorías si vienen
-        for id_categoria in categorias_ids:
+        for id_cat in categorias_ids:
             cur.execute("""
-                INSERT INTO categoria_subcategoria (id_categoria, id_subcategoria)
+                INSERT INTO categoria_subcategoria (id_cat, id_subcat)
                 VALUES (%s, %s)
-            """, (id_categoria, nuevo_id))
+            """, (id_cat, nuevo_id))
 
         conn.commit()
         return success(data={"id_subcategoria": nuevo_id}, message="Subcategoría creada correctamente", status=201)
@@ -139,47 +139,47 @@ def crear_subcategoria():
 # ─────────────────────────────────────────
 # PUT /subcategorias/<id> → Actualizar una subcategoría
 # ─────────────────────────────────────────
-@bp.route("/<int:id_subcategoria>", methods=["PUT"])
-def actualizar_subcategoria(id_subcategoria):
+@bp.route("/<int:id_subcat>", methods=["PUT"])
+def actualizar_subcategoria(id_subcat):
     conn = None
     try:
         data = request.get_json()
 
-        if not data.get("nombre"):
-            return error(message="El campo 'nombre' es obligatorio", status=400)
-
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT id_subcategoria FROM subcategoria WHERE id_subcategoria = %s", (id_subcategoria,))
+        cur.execute("SELECT id_subcat FROM subcategorias WHERE id_subcat = %s", (id_subcat,))
         if cur.fetchone() is None:
             return error(message="Subcategoría no encontrada", status=404)
+        
+        cur.execute("SELECT * FROM subcategorias WHERE id_subcat = %s" , (id_subcat))
+        subcategoria_actual = cur.fetchone()
 
         # Actualizar datos principales
         cur.execute("""
-            UPDATE subcategoria SET
+            UPDATE subcategorias SET
                 nombre = %s,
                 descripcion = %s,
                 valor_numerico = %s,
                 unidad = %s
-            WHERE id_subcategoria = %s
+            WHERE id_subcat = %s
         """, (
-            data["nombre"],
-            data.get("descripcion"),
-            data.get("valor_numerico"),
-            data.get("unidad"),
-            id_subcategoria
+            data.get("nombre", subcategoria_actual["nombre"]),
+            data.get("descripcion", subcategoria_actual["descripcion"]),
+            data.get("valor_numerico", subcategoria_actual["valor_numerico"]),
+            data.get("unidad", subcategoria_actual["unidad"]),
+            id_subcat
         ))
 
         # Si vienen categorias_ids, actualizamos las relaciones
         # Primero borramos las existentes y luego insertamos las nuevas
         if "categorias_ids" in data:
-            cur.execute("DELETE FROM categoria_subcategoria WHERE id_subcategoria = %s", (id_subcategoria,))
+            cur.execute("DELETE FROM categoria_subcategoria WHERE id_subcat = %s", (id_subcat,))
             for id_categoria in data["categorias_ids"]:
                 cur.execute("""
-                    INSERT INTO categoria_subcategoria (id_categoria, id_subcategoria)
+                    INSERT INTO categoria_subcategoria (id_cat, id_subcat)
                     VALUES (%s, %s)
-                """, (id_categoria, id_subcategoria))
+                """, (id_cat, id_subcat))
 
         conn.commit()
         return success(message="Subcategoría actualizada correctamente")
@@ -196,20 +196,20 @@ def actualizar_subcategoria(id_subcategoria):
 # ─────────────────────────────────────────
 # DELETE /subcategorias/<id> → Eliminar una subcategoría
 # ─────────────────────────────────────────
-@bp.route("/<int:id_subcategoria>", methods=["DELETE"])
-def eliminar_subcategoria(id_subcategoria):
+@bp.route("/<int:id_subcat>", methods=["DELETE"])
+def eliminar_subcategoria(id_subcat):
     conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT id_subcategoria FROM subcategoria WHERE id_subcategoria = %s", (id_subcategoria,))
+        cur.execute("SELECT id_subcat FROM subcategorias WHERE id_subcat = %s", (id_subcat,))
         if cur.fetchone() is None:
             return error(message="Subcategoría no encontrada", status=404)
 
         # Primero eliminamos las relaciones en la tabla intermedia
-        cur.execute("DELETE FROM categoria_subcategoria WHERE id_subcategoria = %s", (id_subcategoria,))
-        cur.execute("DELETE FROM subcategoria WHERE id_subcategoria = %s", (id_subcategoria,))
+        cur.execute("DELETE FROM categoria_subcategoria WHERE id_subcat = %s", (id_subcat,))
+        cur.execute("DELETE FROM subcategorias WHERE id_subcat = %s", (id_subcat,))
         conn.commit()
         return success(message="Subcategoría eliminada correctamente")
     except Exception as e:
