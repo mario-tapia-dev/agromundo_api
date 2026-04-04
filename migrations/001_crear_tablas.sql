@@ -124,17 +124,17 @@ CREATE TABLE producto_subcategoria (
 CREATE TABLE almacen_categoria (
     id_alm_cat SERIAL PRIMARY KEY,
     id_almacen INTEGER REFERENCES almacenes(id_almacen),
-    id_categoria INTEGER REFERENCES categorias(id_cat)
+    id_cat INTEGER REFERENCES categorias(id_cat)
 );
 
 CREATE TABLE categoria_subcategoria (
     id_cat_subcat SERIAL PRIMARY KEY,
-    id_categoria INTEGER REFERENCES categorias(id_cat),
-    id_subcategoria INTEGER REFERENCES subcategorias(id_subcat)
+    id_cat INTEGER REFERENCES categorias(id_cat),
+    id_subcat INTEGER REFERENCES subcategorias(id_subcat)
 );
 
 CREATE TABLE clientes_categoria (
     id_clte_cat SERIAL PRIMARY KEY,
-    id_categoria INTEGER REFERENCES categorias(id_cat),
+    id_cat INTEGER REFERENCES categorias(id_cat),
     id_cliente INTEGER REFERENCES clientes(id_cliente)
 );
