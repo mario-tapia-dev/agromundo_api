@@ -152,7 +152,7 @@ def actualizar_subcategoria(id_subcat):
         if cur.fetchone() is None:
             return error(message="Subcategoría no encontrada", status=404)
         
-        cur.execute("SELECT * FROM subcategorias WHERE id_subcat = %s" , (id_subcat))
+        cur.execute("SELECT * FROM subcategorias WHERE id_subcat = %s" , (id_subcat,))
         subcategoria_actual = cur.fetchone()
 
         # Actualizar datos principales
@@ -175,7 +175,7 @@ def actualizar_subcategoria(id_subcat):
         # Primero borramos las existentes y luego insertamos las nuevas
         if "categorias_ids" in data:
             cur.execute("DELETE FROM categoria_subcategoria WHERE id_subcat = %s", (id_subcat,))
-            for id_categoria in data["categorias_ids"]:
+            for id_cat in data["categorias_ids"]:
                 cur.execute("""
                     INSERT INTO categoria_subcategoria (id_cat, id_subcat)
                     VALUES (%s, %s)
