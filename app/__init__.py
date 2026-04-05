@@ -11,6 +11,7 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
     app.json.ensure_ascii = False
+    app.json.sort_keys = False
 
     # Registrar los blueprints (módulos de rutas)
     app.register_blueprint(clientes.bp, url_prefix="/api/clientes")
