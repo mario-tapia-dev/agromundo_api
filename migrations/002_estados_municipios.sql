@@ -1,5 +1,5 @@
 -- Insertar Estados
-INSERT INTO estado (id_estado, nombre) VALUES
+INSERT INTO estados (id_estado, nombre) VALUES
 (1, 'AGUASCALIENTES'),
 (2, 'BAJA CALIFORNIA'),
 (3, 'BAJA CALIFORNIA SUR'),
@@ -34,10 +34,10 @@ INSERT INTO estado (id_estado, nombre) VALUES
 (32, 'ZACATECAS');
 
 -- Ajustar la secuencia de estado (específico de PostgreSQL para campos SERIAL)
-SELECT setval(pg_get_serial_sequence('estado', 'id_estado'), max(id_estado)) FROM estado;
+SELECT setval(pg_get_serial_sequence('estados', 'id_estado'), max(id_estado)) FROM estados;
 
 -- Insertar Municipios
-INSERT INTO municipio (id_estado, nombre) VALUES
+INSERT INTO municipios (id_estado, nombre) VALUES
 -- 1. AGUASCALIENTES
 (1, 'AGUASCALIENTES'), (1, 'AGUASCALIENTES'), (1, 'ASIENTOS'), (1, 'CALVILLO'), (1, 'COSÍO'), (1, 'JESÚS MARÍA'), (1, 'PABELLÓN DE ARTEAGA'), (1, 'RINCÓN DE ROMOS'), (1, 'SAN JOSÉ DE GRACIA'), (1, 'TEPEZALÁ'), (1, 'EL LLANO'), (1, 'SAN FRANCISCO DE LOS ROMO'),
 
