@@ -18,6 +18,7 @@ def create_app():
     app.register_blueprint(productos.bp, url_prefix="/api/productos")
     app.register_blueprint(almacenes.bp, url_prefix="/api/almacenes")
     app.register_blueprint(inventario.bp, url_prefix="/api/inventario")
+    app.register_blueprint(movimientos.bp, url_prefix="/api/movimientos")
     app.register_blueprint(ventas.bp, url_prefix="/api/ventas")
     app.register_blueprint(usuarios.bp, url_prefix="/api/usuarios")
     app.register_blueprint(categorias.bp, url_prefix="/api/categorias")
