@@ -1,0 +1,2 @@
+ALTER TABLE productos
+ADD COLUMN costo FLOAT;
