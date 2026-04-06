@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-from app.routes import clientes, productos, almacenes, inventario, movimientos, ventas, usuarios, categorias, subcategorias
+from app.routes import clientes, productos, almacenes, inventarios, movimientos, ventas, usuarios, categorias, subcategorias
 
 def create_app():
     """
@@ -17,7 +17,7 @@ def create_app():
     app.register_blueprint(clientes.bp, url_prefix="/api/clientes")
     app.register_blueprint(productos.bp, url_prefix="/api/productos")
     app.register_blueprint(almacenes.bp, url_prefix="/api/almacenes")
-    app.register_blueprint(inventario.bp, url_prefix="/api/inventario")
+    app.register_blueprint(inventarios.bp, url_prefix="/api/inventarios")
     app.register_blueprint(movimientos.bp, url_prefix="/api/movimientos")
     app.register_blueprint(ventas.bp, url_prefix="/api/ventas")
     app.register_blueprint(usuarios.bp, url_prefix="/api/usuarios")
