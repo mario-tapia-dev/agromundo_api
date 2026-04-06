@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-from app.routes import clientes, productos, almacenes, inventario, ventas, usuarios, categorias, subcategorias
+from app.routes import clientes, productos, almacenes, inventario, movimientos, ventas, usuarios, categorias, subcategorias
 
 def create_app():
     """
