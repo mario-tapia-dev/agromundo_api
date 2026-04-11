@@ -103,6 +103,28 @@ def obtener_producto(id_producto):
         if conn:
             cur.close()
             conn.close()
+
+# ─────────────────────────────────────────
+# GET /productos/<search> → Buscar un producto
+# ─────────────────────────────────────────
+@bp.route("/<string:search>", methods=["GET"])
+def buscar_producto(search):
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM productos
+            WHERE folio ILIKE %s
+        """, (f"%{search}%",))
+        productos = cur.fetchall()
+        return success(data=productos, message="Productos obtenidos correctamente")
+    except Exception as e:
+        return error(message=str(e), status=500)
+    finally:
+        if conn:
+            cur.close()
+            conn.close()
  
 # ─────────────────────────────────────────
 # POST /productos/ → Crear un producto
