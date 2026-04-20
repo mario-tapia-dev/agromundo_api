@@ -209,6 +209,7 @@ def eliminar_subcategoria(id_subcat):
 
         # Primero eliminamos las relaciones en la tabla intermedia
         cur.execute("DELETE FROM categoria_subcategoria WHERE id_subcat = %s", (id_subcat,))
+        cur.execute("DELETE FROM producto_subcategoria WHERE id_subcat = %s", (id_subcat,))
         cur.execute("DELETE FROM subcategorias WHERE id_subcat = %s", (id_subcat,))
         conn.commit()
         return success(message="Subcategoría eliminada correctamente")
