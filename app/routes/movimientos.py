@@ -18,6 +18,7 @@ def listar_movimientos():
                 m.id_mov,
                 m.tipo,
                 m.cantidad,
+                TO_CHAR(m.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                 p.descripcion AS descripcion_producto,
                 a.nombre AS nombre_almacen
             FROM movimientos_inventario m
@@ -49,6 +50,7 @@ def obtener_movimiento(id_mov):
                 m.id_mov,
                 m.tipo,
                 m.cantidad,
+                TO_CHAR(m.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                 m.id_venta,
                 p.id_producto,
                 p.folio AS folio_producto,
@@ -74,6 +76,7 @@ def obtener_movimiento(id_mov):
                     v.id_venta,
                     v.folio,
                     v.precio_venta_final,
+                    TO_CHAR(m.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                     e.nombre AS estado,
                     m2.nombre AS municipio
                 FROM ventas v

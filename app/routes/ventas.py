@@ -17,6 +17,7 @@ def listar_ventas():
             SELECT
                 v.id_venta,
                 v.folio,
+                TO_CHAR(v.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                 v.precio_venta_final,
                 e.nombre AS estado,
                 m.nombre AS municipio
@@ -48,6 +49,7 @@ def obtener_venta(id_venta):
             SELECT
                 v.id_venta,
                 v.folio,
+                TO_CHAR(m.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                 v.precio_venta_final,
                 e.nombre AS estado,
                 m.nombre AS municipio
