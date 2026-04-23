@@ -41,11 +41,11 @@ def listar_municipios_por_estado(id_estado):
         cur.execute("""
             SELECT
                 m.id_municipio,
-                m.nombre,
+                m.nombre
             FROM municipios m
             WHERE id_estado = %s 
             ORDER BY m.id_municipio ASC
-        """, (id_estado))
+        """, (id_estado,))
         municipios = cur.fetchall()
         return success(data=municipios, message="Municipios obtenidos correctamente")
     except Exception as e:
