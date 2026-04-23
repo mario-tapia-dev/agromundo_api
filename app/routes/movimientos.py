@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
+from app.utils.email import enviar_alerta_stock
 
 bp = Blueprint("movimientos", __name__)
 
@@ -189,6 +190,28 @@ def crear_movimiento():
             data["id_almacen"],
         ))
 
+        # Verificar si se alcanzó el stock mínimo
+        cur.execute("""
+            SELECT
+                i.stock,
+                i.min_stock,
+                p.descripcion,
+                a.nombre AS nombre_almacen
+            FROM inventarios i
+            LEFT JOIN productos p ON p.id_producto = i.id_producto
+            LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
+            WHERE i.id_producto = %s AND i.id_almacen = %s
+        """, (data["id_producto"], data["id_almacen"]))
+        inventario_actualizado = cur.fetchone()
+ 
+        if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
+            enviar_alerta_stock(
+                descripcion_producto=inventario_actualizado["descripcion"],
+                nombre_almacen=inventario_actualizado["nombre_almacen"],
+                stock_actual=inventario_actualizado["stock"],
+                min_stock=inventario_actualizado["min_stock"]
+            )
+
         conn.commit()
         return success(data={"id_mov": nuevo_id}, message="Movimiento creado correctamente", status=201)
     except Exception as e:
@@ -290,6 +313,28 @@ def actualizar_movimiento(id_mov):
                 id_producto_nuevo,
                 id_almacen_nuevo,
             ))
+
+            # Verificar si se alcanzó el stock mínimo
+            cur.execute("""
+                SELECT
+                    i.stock,
+                    i.min_stock,
+                    p.descripcion,
+                    a.nombre AS nombre_almacen
+                FROM inventarios i
+                LEFT JOIN productos p ON p.id_producto = i.id_producto
+                LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
+                WHERE i.id_producto = %s AND i.id_almacen = %s
+            """, (id_producto_nuevo, id_almacen_nuevo))
+            inventario_actualizado = cur.fetchone()
+ 
+            if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
+                enviar_alerta_stock(
+                    descripcion_producto=inventario_actualizado["descripcion"],
+                    nombre_almacen=inventario_actualizado["nombre_almacen"],
+                    stock_actual=inventario_actualizado["stock"],
+                    min_stock=inventario_actualizado["min_stock"]
+                )
 
         else:
             # Sin cambios de tipo/cantidad, solo actualizar campos restantes

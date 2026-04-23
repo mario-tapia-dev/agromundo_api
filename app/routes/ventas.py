@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
+from app.utils.email import enviar_alerta_stock
 
 bp = Blueprint("ventas", __name__)
 
@@ -49,7 +50,7 @@ def obtener_venta(id_venta):
             SELECT
                 v.id_venta,
                 v.folio,
-                TO_CHAR(m.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
+                TO_CHAR(v.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                 v.precio_venta_final,
                 e.nombre AS estado,
                 m.nombre AS municipio
@@ -184,6 +185,28 @@ def crear_venta():
                 item["id_almacen"],
             ))
 
+            # Verificar si se alcanzó el stock mínimo
+            cur.execute("""
+                SELECT
+                    i.stock,
+                    i.min_stock,
+                    p.descripcion,
+                    a.nombre AS nombre_almacen
+                FROM inventarios i
+                LEFT JOIN productos p ON p.id_producto = i.id_producto
+                LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
+                WHERE i.id_producto = %s AND i.id_almacen = %s
+            """, (item["id_producto"], item["id_almacen"]))
+            inventario_actualizado = cur.fetchone()
+ 
+            if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
+                enviar_alerta_stock(
+                    descripcion_producto=inventario_actualizado["descripcion"],
+                    nombre_almacen=inventario_actualizado["nombre_almacen"],
+                    stock_actual=inventario_actualizado["stock"],
+                    min_stock=inventario_actualizado["min_stock"]
+                )
+
         conn.commit()
         return success(data={"id_venta": nuevo_id}, message="Venta creada correctamente", status=201)
     except Exception as e:
@@ -316,6 +339,28 @@ def actualizar_venta(id_venta):
                     item["id_producto"],
                     item["id_almacen"],
                 ))
+
+                # Verificar si se alcanzó el stock mínimo
+                cur.execute("""
+                    SELECT
+                        i.stock,
+                        i.min_stock,
+                        p.descripcion,
+                        a.nombre AS nombre_almacen
+                    FROM inventarios i
+                    LEFT JOIN productos p ON p.id_producto = i.id_producto
+                    LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
+                    WHERE i.id_producto = %s AND i.id_almacen = %s
+                """, (item["id_producto"], item["id_almacen"]))
+                inventario_actualizado = cur.fetchone()
+ 
+                if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
+                    enviar_alerta_stock(
+                        descripcion_producto=inventario_actualizado["descripcion"],
+                        nombre_almacen=inventario_actualizado["nombre_almacen"],
+                        stock_actual=inventario_actualizado["stock"],
+                        min_stock=inventario_actualizado["min_stock"]
+                    )
 
         conn.commit()
         return success(message="Venta actualizada correctamente")
