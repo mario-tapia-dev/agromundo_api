@@ -14,7 +14,7 @@ def success(data=None, message="OK", status=200):
     }), status
 
 
-def error(message="Error", status=400):
+def error(message="Error", status=400, data=None):
     """
     Respuesta de error estándar.
     message: descripción del error
@@ -23,5 +23,8 @@ def error(message="Error", status=400):
     return jsonify({
         "success": False,
         "message": message,
-        "data": None
+        "data": data
     }), status
+
+
+    
