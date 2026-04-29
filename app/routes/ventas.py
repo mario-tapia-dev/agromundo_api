@@ -113,6 +113,9 @@ def crear_venta():
             for campo in ["id_producto", "cantidad_vendida", "precio_venta", "id_almacen"]:
                 if item.get(campo) is None:
                     return error(message=f"El campo '{campo}' es obligatorio en el elemento {i + 1} del detalle", status=400)
+                
+            if item["cantidad_vendida"] <= 0:
+                return error(message=f"La cantidad_vendida debe ser mayor a 0 en el elemento {i + 1} del detalle", status=400)
 
         conn = get_connection()
         cur = conn.cursor()
@@ -266,6 +269,9 @@ def actualizar_venta(id_venta):
                 for campo in ["id_producto", "cantidad_vendida", "precio_venta", "id_almacen"]:
                     if item.get(campo) is None:
                         return error(message=f"El campo '{campo}' es obligatorio en el elemento {i + 1} del detalle", status=400)
+                    
+                if item["cantidad_vendida"] <= 0:
+                    return error(message=f"La cantidad_vendida debe ser mayor a 0 en el elemento {i + 1} del detalle", status=400)
 
             # Restaurar stock usando los movimientos anteriores de esta venta
             cur.execute("""
