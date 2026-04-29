@@ -53,10 +53,13 @@ def obtener_venta(id_venta):
                 TO_CHAR(v.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                 v.precio_venta_final,
                 e.nombre AS estado,
-                m.nombre AS municipio
+                m.nombre AS municipio,
+                c.id_cliente,
+                c.nombre || ' ' || c.apellido_paterno AS cliente
             FROM ventas v
             LEFT JOIN estados e ON e.id_estado = v.id_estado
             LEFT JOIN municipios m ON m.id_municipio = v.id_municipio
+            LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
             WHERE v.id_venta = %s
         """, (id_venta,))
         venta = cur.fetchone()
@@ -116,9 +119,19 @@ def crear_venta():
                 
             if item["cantidad_vendida"] <= 0:
                 return error(message=f"La cantidad_vendida debe ser mayor a 0 en el elemento {i + 1} del detalle", status=400)
+        
+        id_cliente = data.get("id_cliente")
 
         conn = get_connection()
         cur = conn.cursor()
+
+        if id_cliente is not None:
+            cur.execute("SELECT id_cliente FROM clientes WHERE id_cliente = %s", (id_cliente,))
+            if cur.fetchone() is None:
+                return error(message="El cliente seleccionado no existe", status=404)
+        else:
+            cur.execute("SELECT id_cliente FROM clientes WHERE folio = 'PUB-001'")
+            id_cliente = cur.fetchone()["id_cliente"]
 
         # Validar stock disponible por cada elemento del detalle antes de procesar
         for item in detalle:
@@ -141,14 +154,15 @@ def crear_venta():
 
         # Insertar la venta
         cur.execute("""
-            INSERT INTO ventas (folio, precio_venta_final, id_estado, id_municipio)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO ventas (folio, precio_venta_final, id_estado, id_municipio, id_cliente)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING id_venta
         """, (
             data.get("folio"),
             data["precio_venta_final"],
             data.get("id_estado"),
             data.get("id_municipio"),
+            id_cliente,
         ))
         nuevo_id = cur.fetchone()["id_venta"]
 
@@ -240,6 +254,12 @@ def actualizar_venta(id_venta):
         venta_actual = cur.fetchone()
         if venta_actual is None:
             return error(message="Venta no encontrada", status=404)
+        
+        id_cliente = data.get("id_cliente", venta_actual["id_cliente"])
+        if data.get("id_cliente") is not None:
+            cur.execute("SELECT id_cliente FROM clientes WHERE id_cliente = %s", (id_cliente,))
+            if cur.fetchone() is None:
+                return error(message="El cliente seleccionado no existe", status=404)
 
         # Actualizar campos generales de la venta
         cur.execute("""
@@ -247,15 +267,17 @@ def actualizar_venta(id_venta):
                 folio = %s,
                 precio_venta_final = %s,
                 id_estado = %s,
-                id_municipio = %s
+                id_municipio = %s,
+                id_cliente = %s
             WHERE id_venta = %s
-        """, (
-            data.get("folio", venta_actual["folio"]),
-            data.get("precio_venta_final", venta_actual["precio_venta_final"]),
-            data.get("id_estado", venta_actual["id_estado"]),
-            data.get("id_municipio", venta_actual["id_municipio"]),
-            id_venta,
-        ))
+            """, (
+                data.get("folio", venta_actual["folio"]),
+                data.get("precio_venta_final", venta_actual["precio_venta_final"]),
+                data.get("id_estado", venta_actual["id_estado"]),
+                data.get("id_municipio", venta_actual["id_municipio"]),
+                id_cliente,
+                id_venta,
+            ))
 
         # Si viene nuevo detalle, reemplazar todo
         if "detalle" in data:
