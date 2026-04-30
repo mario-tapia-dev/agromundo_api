@@ -71,6 +71,37 @@ def obtener_almacen(id_almacen):
             conn.close()
 
 # ─────────────────────────────────────────
+# GET /almacenes/<search> → Buscar un producto
+# ─────────────────────────────────────────
+@bp.route("/<string:search>", methods=["GET"])
+def buscar_almacen(search):
+    if not search or not search.strip():
+        return error(message="El parámetro de búsqueda es requerido", status=400)
+
+    conn = None
+    cur = None  
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM almacenes
+            WHERE folio ILIKE %s OR nombre ILIKE %s
+        """, (f"%{search}%", f"%{search}%"))
+        productos = cur.fetchall()
+
+        if not productos:
+            return error(message="No se encontraron almacenes", status=404)
+
+        return success(data=productos, message="Almacenes obtenidos correctamente")
+    except Exception as e:
+        return error(message=str(e), status=500)
+    finally:
+        if cur:  
+            cur.close()
+        if conn:
+            conn.close()
+
+# ─────────────────────────────────────────
 # POST /almacenes/ → Crear un almacén
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])

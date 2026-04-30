@@ -109,21 +109,30 @@ def obtener_producto(id_producto):
 # ─────────────────────────────────────────
 @bp.route("/<string:search>", methods=["GET"])
 def buscar_producto(search):
+    if not search or not search.strip():
+        return error(message="El parámetro de búsqueda es requerido", status=400)
+
     conn = None
+    cur = None  
     try:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("""
             SELECT * FROM productos
-            WHERE folio ILIKE %s
-        """, (f"%{search}%",))
+            WHERE folio ILIKE %s OR descripcion ILIKE %s
+        """, (f"%{search}%", f"%{search}%"))
         productos = cur.fetchall()
+
+        if not productos:
+            return error(message="No se encontraron productos", status=404)
+
         return success(data=productos, message="Productos obtenidos correctamente")
     except Exception as e:
         return error(message=str(e), status=500)
     finally:
-        if conn:
+        if cur:  
             cur.close()
+        if conn:
             conn.close()
  
 # ─────────────────────────────────────────
