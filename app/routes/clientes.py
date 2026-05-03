@@ -92,6 +92,37 @@ def obtener_cliente(id_cliente):
 
 
 # ─────────────────────────────────────────
+# GET /clientes/<search> → Buscar un cliente
+# ─────────────────────────────────────────
+@bp.route("/<string:search>", methods=["GET"])
+def buscar_cliente(search):
+    if not search or not search.strip():
+        return error(message="El parámetro de búsqueda es requerido", status=400)
+
+    conn = None
+    cur = None  
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT * FROM clientes
+            WHERE folio ILIKE %s OR nombre ILIKE %s OR apellido_paterno ILIKE %s OR apellido_materno ILIKE %s
+        """, (f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"))
+        clientes = cur.fetchall()
+
+        if not productos:
+            return error(message="No se encontraron clientes", status=404)
+
+        return success(data=productos, message="Clientes obtenidos correctamente")
+    except Exception as e:
+        return error(message=str(e), status=500)
+    finally:
+        if cur:  
+            cur.close()
+        if conn:
+            conn.close()
+
+# ─────────────────────────────────────────
 # POST /clientes/ → Crear un cliente
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
