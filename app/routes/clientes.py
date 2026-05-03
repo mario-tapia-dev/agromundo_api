@@ -110,10 +110,10 @@ def buscar_cliente(search):
         """, (f"%{search}%", f"%{search}%", f"%{search}%", f"%{search}%"))
         clientes = cur.fetchall()
 
-        if not productos:
+        if not clientes:
             return error(message="No se encontraron clientes", status=404)
 
-        return success(data=productos, message="Clientes obtenidos correctamente")
+        return success(data=clientes, message="Clientes obtenidos correctamente")
     except Exception as e:
         return error(message=str(e), status=500)
     finally:
