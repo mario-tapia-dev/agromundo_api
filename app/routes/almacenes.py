@@ -102,6 +102,42 @@ def buscar_almacen(search):
             conn.close()
 
 # ─────────────────────────────────────────
+# GET /almacenes/por-producto/<id_producto> → Almacenes con inventario de un producto
+# ─────────────────────────────────────────
+@bp.route("/por-producto/<int:id_producto>", methods=["GET"])
+def almacenes_por_producto(id_producto):
+    conn = None
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        
+        cur.execute("SELECT id_producto FROM productos WHERE id_producto = %s", (id_producto,))
+        if cur.fetchone() is None:
+            return error(message="El producto seleccionado no existe", status=404)
+
+        cur.execute("""
+            SELECT
+                a.id_almacen,
+                a.folio,
+                a.nombre,
+                i.stock
+            FROM inventarios i
+            LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
+            WHERE i.id_producto = %s AND i.stock > 0
+            ORDER BY a.id_almacen ASC
+        """, (id_producto,))
+        almacenes = cur.fetchall()
+
+        return success(data=almacenes, message="Almacenes obtenidos correctamente")
+    except Exception as e:
+        return error(message=str(e), status=500)
+    finally:
+        if conn:
+            cur.close()
+            conn.close()
+
+# ─────────────────────────────────────────
 # POST /almacenes/ → Crear un almacén
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
