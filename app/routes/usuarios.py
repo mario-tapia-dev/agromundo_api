@@ -1,7 +1,11 @@
 from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
+from app.utils.jwt import verificar_token, requiere_admin
 import bcrypt
+import jwt
+import os
+from datetime import datetime, timezone, timedelta
 
 bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 
@@ -10,6 +14,7 @@ bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 # GET /usuarios/ → Listar todos los usuarios
 # ─────────────────────────────────────────
 @bp.route("/", methods=["GET"])
+@requiere_admin
 def listar_usuarios():
     conn = None
     try:
@@ -40,6 +45,7 @@ def listar_usuarios():
 # GET /usuarios/<id> → Detalle de un usuario
 # ─────────────────────────────────────────
 @bp.route("/<int:id_usuario>", methods=["GET"])
+@requiere_admin
 def obtener_usuario(id_usuario):
     conn = None
     try:
@@ -72,6 +78,7 @@ def obtener_usuario(id_usuario):
 # POST /usuarios/ → Crear un usuario
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
+@requiere_admin
 def crear_usuario():
     conn = None
     try:
@@ -123,6 +130,7 @@ def crear_usuario():
 # PUT /usuarios/<id> → Actualizar un usuario
 # ─────────────────────────────────────────
 @bp.route("/<int:id_usuario>", methods=["PUT"])
+@requiere_admin
 def actualizar_usuario(id_usuario):
     conn = None
     try:
@@ -191,6 +199,7 @@ def actualizar_usuario(id_usuario):
 # DELETE /usuarios/<id> → Eliminar un usuario
 # ─────────────────────────────────────────
 @bp.route("/<int:id_usuario>", methods=["DELETE"])
+@requiere_admin
 def eliminar_usuario(id_usuario):
     conn = None
     try:
@@ -254,12 +263,23 @@ def login():
         if not password_valido:
             return error(message="Credenciales incorrectas", status=401)
 
-        # No retornamos el hashed_password en la respuesta
+        token = jwt.encode(
+        {
+        "id_usuario": usuario["id_usuario"],
+        "nombre_usuario": usuario["nombre_usuario"],
+        "email": usuario["email"],
+        "rol": usuario["rol"],
+        "exp": datetime.now(timezone.utc) + timedelta(hours=16)
+        },
+        os.getenv("SECRET_KEY"),
+        algorithm="HS256")
+
         return success(data={
-            "id_usuario": usuario["id_usuario"],
-            "nombre_usuario": usuario["nombre_usuario"],
-            "email": usuario["email"],
-            "rol": usuario["rol"]
+        "id_usuario": usuario["id_usuario"],
+        "nombre_usuario": usuario["nombre_usuario"],
+        "email": usuario["email"],
+        "rol": usuario["rol"],
+        "token": token
         }, message="Login exitoso")
 
     except Exception as e:

@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
+from app.utils.jwt import verificar_token, requiere_admin
 
 bp = Blueprint("inventarios", __name__)
 
@@ -8,6 +9,7 @@ bp = Blueprint("inventarios", __name__)
 # GET /inventarios/ → Listar todos los inventarios
 # ─────────────────────────────────────────
 @bp.route("/", methods=["GET"])
+@requiere_admin
 def listar_inventarios():
     conn = None
     try:
@@ -39,6 +41,7 @@ def listar_inventarios():
 # GET /inventarios/<id> → Detalle de un inventario
 # ─────────────────────────────────────────
 @bp.route("/<int:id_inventario>", methods=["GET"])
+@requiere_admin
 def obtener_inventario(id_inventario):
     conn = None
     try:
@@ -76,6 +79,7 @@ def obtener_inventario(id_inventario):
 # POST /inventarios/ → Crear un inventario
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
+@requiere_admin
 def crear_inventario():
     conn = None
     try:
@@ -145,6 +149,7 @@ def crear_inventario():
 # DELETE /inventarios/<id> → Eliminar un cliente
 # ─────────────────────────────────────────
 @bp.route("/<int:id_inventario>", methods=["DELETE"])
+@requiere_admin
 def eliminar_cliente(id_inventario):
     conn = None
     try:

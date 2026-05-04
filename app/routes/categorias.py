@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
+from app.utils.jwt import verificar_token, requiere_admin
 
 bp = Blueprint("categorias", __name__)
 
@@ -9,6 +10,7 @@ bp = Blueprint("categorias", __name__)
 # GET /categorias/ → Listar todas las categorías
 # ─────────────────────────────────────────
 @bp.route("/", methods=["GET"])
+@requiere_admin
 def listar_categorias():
     conn = None
     try:
@@ -33,6 +35,7 @@ def listar_categorias():
 # GET /categorias/<id> → Detalle de una categoría
 # ─────────────────────────────────────────
 @bp.route("/<int:id_cat>", methods=["GET"])
+@requiere_admin
 def obtener_categoria(id_cat):
     conn = None
     try:
@@ -59,6 +62,7 @@ def obtener_categoria(id_cat):
 # POST /categorias/ → Crear una categoría
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
+@requiere_admin
 def crear_categoria():
     conn = None
     try:
@@ -94,6 +98,7 @@ def crear_categoria():
 # PUT /categorias/<id> → Actualizar una categoría
 # ─────────────────────────────────────────
 @bp.route("/<int:id_cat>", methods=["PUT"])
+@requiere_admin
 def actualizar_categoria(id_cat):
     conn = None
     try:
@@ -129,6 +134,7 @@ def actualizar_categoria(id_cat):
 # DELETE /categorias/<id> → Eliminar una categoría
 # ─────────────────────────────────────────
 @bp.route("/<int:id_cat>", methods=["DELETE"])
+@requiere_admin
 def eliminar_categoria(id_cat):
     conn = None
     try:
