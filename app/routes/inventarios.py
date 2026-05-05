@@ -161,6 +161,7 @@ def eliminar_cliente(id_inventario):
         if cur.fetchone() is None:
             return error(message="Inventario no encontrado", status=404)
 
+        cur.execute("DELETE FROM movimientos_inventario WHERE id_inventario = %s", (id_inventario,))
         cur.execute("DELETE FROM inventarios WHERE id_inventario = %s", (id_inventario,))
         conn.commit()
         return success(message="Inventario eliminado correctamente")

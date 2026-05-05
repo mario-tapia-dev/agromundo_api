@@ -283,6 +283,7 @@ def eliminar_producto(id_producto):
  
         cur.execute("DELETE FROM producto_categoria WHERE id_prod = %s", (id_producto,))
         cur.execute("DELETE FROM producto_subcategoria WHERE id_producto = %s", (id_producto,))
+        cur.execute("DELETE FROM inventarios WHERE id_producto = %s", (id_producto,))
         cur.execute("DELETE FROM productos WHERE id_producto = %s", (id_producto,))
  
         conn.commit()

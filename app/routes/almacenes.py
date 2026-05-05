@@ -271,6 +271,7 @@ def eliminar_almacen(id_almacen):
             return error(message="Almacén no encontrado", status=404)
 
         cur.execute("DELETE FROM almacen_categoria WHERE id_almacen = %s", (id_almacen,))
+        cur.execute("DELETE FROM inventarios WHERE id_almacen = %s", (id_almacen,))
         cur.execute("DELETE FROM almacenes WHERE id_almacen = %s", (id_almacen,))
 
         conn.commit()
