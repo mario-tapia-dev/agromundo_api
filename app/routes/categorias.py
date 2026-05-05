@@ -145,6 +145,10 @@ def eliminar_categoria(id_cat):
         if cur.fetchone() is None:
             return error(message="Categoría no encontrada", status=404)
 
+        cur.execute("DELETE FROM categoria_subcategoria WHERE id_cat = %s", (id_cat,))
+        cur.execute("DELETE FROM producto_categoria WHERE id_cat = %s", (id_cat,))
+        cur.execute("DELETE FROM almacen_categoria WHERE id_cat = %s", (id_cat,))
+        cur.execute("DELETE FROM clientes_categoria WHERE id_cat = %s", (id_cat,))
         cur.execute("DELETE FROM categorias WHERE id_cat = %s", (id_cat,))
         conn.commit()
         return success(message="Categoría eliminada correctamente")
