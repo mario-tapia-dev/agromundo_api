@@ -203,14 +203,17 @@ def crear_movimiento():
             WHERE i.id_producto = %s AND i.id_almacen = %s
         """, (data["id_producto"], data["id_almacen"]))
         inventario_actualizado = cur.fetchone()
- 
+
         if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
-            enviar_alerta_stock(
+            try:
+                enviar_alerta_stock(
                 descripcion_producto=inventario_actualizado["descripcion"],
                 nombre_almacen=inventario_actualizado["nombre_almacen"],
                 stock_actual=inventario_actualizado["stock"],
                 min_stock=inventario_actualizado["min_stock"]
             )
+            except Exception as e:
+                print(f"Error al enviar alerta de stock: {str(e)}")
 
         conn.commit()
         return success(data={"id_mov": nuevo_id}, message="Movimiento creado correctamente", status=201)
@@ -328,13 +331,15 @@ def actualizar_movimiento(id_mov):
             """, (id_producto_nuevo, id_almacen_nuevo))
             inventario_actualizado = cur.fetchone()
  
-            if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
+            try:
                 enviar_alerta_stock(
-                    descripcion_producto=inventario_actualizado["descripcion"],
-                    nombre_almacen=inventario_actualizado["nombre_almacen"],
-                    stock_actual=inventario_actualizado["stock"],
-                    min_stock=inventario_actualizado["min_stock"]
-                )
+                descripcion_producto=inventario_actualizado["descripcion"],
+                nombre_almacen=inventario_actualizado["nombre_almacen"],
+                stock_actual=inventario_actualizado["stock"],
+                min_stock=inventario_actualizado["min_stock"]
+            )
+            except Exception as e:
+                print(f"Error al enviar alerta de stock: {str(e)}")
 
         else:
             # Sin cambios de tipo/cantidad, solo actualizar campos restantes

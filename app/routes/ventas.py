@@ -219,14 +219,17 @@ def crear_venta():
                 WHERE i.id_producto = %s AND i.id_almacen = %s
             """, (item["id_producto"], item["id_almacen"]))
             inventario_actualizado = cur.fetchone()
- 
+
             if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
-                enviar_alerta_stock(
+                try:
+                    enviar_alerta_stock(
                     descripcion_producto=inventario_actualizado["descripcion"],
                     nombre_almacen=inventario_actualizado["nombre_almacen"],
                     stock_actual=inventario_actualizado["stock"],
                     min_stock=inventario_actualizado["min_stock"]
                 )
+                except Exception as e:
+                    print(f"Error al enviar alerta de stock: {str(e)}")
 
         conn.commit()
         return success(data={"id_venta": nuevo_id}, message="Venta creada correctamente", status=201)
@@ -389,14 +392,17 @@ def actualizar_venta(id_venta):
                     WHERE i.id_producto = %s AND i.id_almacen = %s
                 """, (item["id_producto"], item["id_almacen"]))
                 inventario_actualizado = cur.fetchone()
- 
+
                 if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
-                    enviar_alerta_stock(
+                    try:
+                        enviar_alerta_stock(
                         descripcion_producto=inventario_actualizado["descripcion"],
                         nombre_almacen=inventario_actualizado["nombre_almacen"],
                         stock_actual=inventario_actualizado["stock"],
                         min_stock=inventario_actualizado["min_stock"]
                     )
+                    except Exception as e:
+                        print(f"Error al enviar alerta de stock: {str(e)}")
 
         conn.commit()
         return success(message="Venta actualizada correctamente")
