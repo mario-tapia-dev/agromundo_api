@@ -24,8 +24,9 @@ def listar_clientes():
                 telefono,
                 email
             FROM clientes
+            WHERE id_cliente != %s
             ORDER BY id_cliente ASC
-        """)
+        """, (1,))
         clientes = cur.fetchall()
         return success(data=clientes, message="Clientes obtenidos correctamente")
     except Exception as e:
