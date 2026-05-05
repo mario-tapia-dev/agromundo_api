@@ -116,6 +116,14 @@ def crear_inventario():
         producto = cur.fetchone()
         if producto is None:
             return error(message="El producto seleccionado no existe", status = 404)
+        
+        # Verificar que no exista ya un inventario con ese producto y almacén
+        cur.execute("""
+            SELECT id_inventario FROM inventarios
+            WHERE id_producto = %s AND id_almacen = %s
+        """, (data["id_producto"], data["id_almacen"]))
+        if cur.fetchone() is not None:
+            return error(message="Ya existe un inventario registrado para ese producto en ese almacén", status=409)
 
         cur.execute("""
         INSERT INTO inventarios (
