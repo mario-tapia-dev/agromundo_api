@@ -77,7 +77,7 @@ def obtener_movimiento(id_mov):
                     v.id_venta,
                     v.folio,
                     v.precio_venta_final,
-                    TO_CHAR(m.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
+                    TO_CHAR(v.fecha_creacion, 'DD-MM-YYYY HH24:MI:SS') AS fecha_creacion,
                     e.nombre AS estado,
                     m2.nombre AS municipio
                 FROM ventas v
