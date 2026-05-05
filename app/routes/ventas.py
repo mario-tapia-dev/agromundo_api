@@ -136,8 +136,11 @@ def crear_venta():
         # Validar stock disponible por cada elemento del detalle antes de procesar
         for item in detalle:
             cur.execute("""
-                SELECT stock FROM inventarios
-                WHERE id_producto = %s AND id_almacen = %s
+                SELECT i.stock, p.descripcion, a.nombre AS nombre_almacen
+                FROM inventarios i
+                LEFT JOIN productos p ON p.id_producto = i.id_producto
+                LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
+                WHERE i.id_producto = %s AND i.id_almacen = %s
             """, (item["id_producto"], item["id_almacen"]))
             inventario = cur.fetchone()
 
@@ -146,10 +149,11 @@ def crear_venta():
                     message=f"No hay inventario registrado para el producto {item['id_producto']} en el almacén {item['id_almacen']}",
                     status=404
                 )
+           
             if item["cantidad_vendida"] > inventario["stock"]:
                 return error(
-                    message=f"Stock insuficiente para el producto {item['id_producto']} en el almacén {item['id_almacen']}. Stock disponible: {inventario['stock']}",
-                    status=422
+                    message=f"Stock insuficiente para '{inventario['descripcion']}' en '{inventario['nombre_almacen']}'. Stock disponible: {inventario['stock']}",
+                status=422
                 )
 
         # Insertar la venta
@@ -319,8 +323,11 @@ def actualizar_venta(id_venta):
             # Validar stock disponible con el nuevo detalle antes de procesar
             for item in detalle:
                 cur.execute("""
-                    SELECT stock FROM inventarios
-                    WHERE id_producto = %s AND id_almacen = %s
+                    SELECT i.stock, p.descripcion, a.nombre AS nombre_almacen
+                    FROM inventarios i
+                    LEFT JOIN productos p ON p.id_producto = i.id_producto
+                    LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
+                    WHERE i.id_producto = %s AND i.id_almacen = %s
                 """, (item["id_producto"], item["id_almacen"]))
                 inventario = cur.fetchone()
 
@@ -329,9 +336,10 @@ def actualizar_venta(id_venta):
                         message=f"No hay inventario registrado para el producto {item['id_producto']} en el almacén {item['id_almacen']}",
                         status=404
                     )
+           
                 if item["cantidad_vendida"] > inventario["stock"]:
                     return error(
-                        message=f"Stock insuficiente para el producto {item['id_producto']} en el almacén {item['id_almacen']}. Stock disponible: {inventario['stock']}",
+                        message=f"Stock insuficiente para '{inventario['descripcion']}' en '{inventario['nombre_almacen']}'. Stock disponible: {inventario['stock']}",
                         status=422
                     )
 
