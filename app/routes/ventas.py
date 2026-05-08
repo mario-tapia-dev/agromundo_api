@@ -25,7 +25,7 @@ def listar_ventas():
             FROM ventas v
             LEFT JOIN estados e ON e.id_estado = v.id_estado
             LEFT JOIN municipios m ON m.id_municipio = v.id_municipio
-            ORDER BY v.id_venta ASC
+            ORDER BY v.id_venta DESC
         """)
         ventas = cur.fetchall()
         return success(data=ventas, message="Ventas obtenidas correctamente")
