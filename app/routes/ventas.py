@@ -37,6 +37,47 @@ def listar_ventas():
             conn.close()
 
 # ─────────────────────────────────────────
+# GET /ventas/buscar/<search> → Buscar ventas por cliente o producto
+# ─────────────────────────────────────────
+@bp.route("/buscar/<string:search>", methods=["GET"])
+def buscar_ventas(search):
+    if not search or not search.strip():
+        return error(message="El parámetro de búsqueda es requerido", status=400)
+
+    conn = None
+    cur = None  
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        
+        search_val = f"%{search}%"
+        
+        cur.execute("""
+            SELECT DISTINCT 
+                    v.*, 
+                    c.nombre, 
+                    c.apellido_paterno
+            FROM ventas v
+            INNER JOIN clientes c ON v.id_cliente = c.id_cliente
+            LEFT JOIN detalle_venta dv ON v.id_venta = dv.id_venta
+            LEFT JOIN productos p ON dv.id_producto = p.id_producto
+            WHERE c.nombre ILIKE %s OR c.apellido_paterno ILIKE %s OR v.folio ILIKE %s OR p.descripcion ILIKE %s OR p.folio ILIKE %s
+            ORDER BY v.fecha_creacion DESC
+        """, (search_val, search_val, search_val, search_val, search_val))
+
+        ventas = cur.fetchall()
+
+        if not ventas:
+            return error(message="No se encontraron ventas", status=404)
+
+        return success(data=ventas, message="Ventas obtenidas correctamente")
+    except Exception as e:
+        return error(message=str(e), status=500)
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
+# ─────────────────────────────────────────
 # GET /ventas/<id> → Detalle de una venta
 # ─────────────────────────────────────────
 @bp.route("/<int:id_venta>", methods=["GET"])
