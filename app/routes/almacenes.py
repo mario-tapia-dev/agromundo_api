@@ -9,7 +9,6 @@ bp = Blueprint("almacenes", __name__)
 # GET /almacenes/ → Listar todos los almacenes
 # ─────────────────────────────────────────
 @bp.route("/", methods=["GET"])
-@requiere_admin
 def listar_almacenes():
     conn = None
     try:
@@ -36,7 +35,6 @@ def listar_almacenes():
 # GET /almacenes/<id> → Detalle de un almacén
 # ─────────────────────────────────────────
 @bp.route("/<int:id_almacen>", methods=["GET"])
-@requiere_admin
 def obtener_almacen(id_almacen):
     conn = None
     try:
@@ -74,10 +72,9 @@ def obtener_almacen(id_almacen):
             conn.close()
 
 # ─────────────────────────────────────────
-# GET /almacenes/<search> → Buscar un producto
+# GET /almacenes/<search> → Buscar un almacen
 # ─────────────────────────────────────────
 @bp.route("/<string:search>", methods=["GET"])
-@requiere_admin
 def buscar_almacen(search):
     if not search or not search.strip():
         return error(message="El parámetro de búsqueda es requerido", status=400)
@@ -109,7 +106,6 @@ def buscar_almacen(search):
 # GET /almacenes/por-producto/<id_producto> → Almacenes con inventario de un producto
 # ─────────────────────────────────────────
 @bp.route("/por-producto/<int:id_producto>", methods=["GET"])
-@requiere_admin
 def almacenes_por_producto(id_producto):
     conn = None
     try:

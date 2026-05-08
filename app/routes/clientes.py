@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
+from app.utils.jwt import verificar_token, requiere_admin
 
 bp = Blueprint("clientes", __name__)
 
@@ -362,6 +363,7 @@ def actualizar_cliente(id_cliente):
 # DELETE /clientes/<id> → Eliminar un cliente
 # ─────────────────────────────────────────
 @bp.route("/<int:id_cliente>", methods=["DELETE"])
+@requiere_admin
 def eliminar_cliente(id_cliente):
     conn = None
     try:

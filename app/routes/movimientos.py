@@ -2,6 +2,7 @@ from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
 from app.utils.email import enviar_alerta_stock
+from app.utils.jwt import verificar_token, requiere_admin
 
 bp = Blueprint("movimientos", __name__)
 
@@ -113,6 +114,7 @@ def obtener_movimiento(id_mov):
             conn.close()
 
 @bp.route("/", methods=["POST"])
+@requiere_admin
 def crear_movimiento():
     conn = None
     try:
@@ -217,6 +219,7 @@ def crear_movimiento():
 # PUT /movimientos/<id> → Actualizar un movimiento
 # ─────────────────────────────────────────
 @bp.route("/<int:id_mov>", methods=["PUT"])
+@requiere_admin
 def actualizar_movimiento(id_mov):
     conn = None
     try:
@@ -345,6 +348,7 @@ def actualizar_movimiento(id_mov):
 # DELETE /movimientos/<id> → Eliminar un movimiento
 # ─────────────────────────────────────────
 @bp.route("/<int:id_mov>", methods=["DELETE"])
+@requiere_admin
 def eliminar_movimiento(id_mov):
     conn = None
     try:

@@ -9,7 +9,6 @@ bp = Blueprint("inventarios", __name__)
 # GET /inventarios/ → Listar todos los inventarios
 # ─────────────────────────────────────────
 @bp.route("/", methods=["GET"])
-@requiere_admin
 def listar_inventarios():
     conn = None
     try:
@@ -41,7 +40,6 @@ def listar_inventarios():
 # GET /inventarios/<id> → Detalle de un inventario
 # ─────────────────────────────────────────
 @bp.route("/<int:id_inventario>", methods=["GET"])
-@requiere_admin
 def obtener_inventario(id_inventario):
     conn = None
     try:
@@ -153,9 +151,6 @@ def crear_inventario():
             cur.close()
             conn.close()
 
-# ─────────────────────────────────────────
-# DELETE /inventarios/<id> → Eliminar un inventario
-# ─────────────────────────────────────────
 # ─────────────────────────────────────────
 # DELETE /inventarios/<id> → Eliminar inventario y sus movimientos
 # ─────────────────────────────────────────

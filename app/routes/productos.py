@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from app.database import get_connection
 from app.utils.response import success, error
+from app.utils.jwt import verificar_token, requiere_admin
  
 bp = Blueprint("productos", __name__)
  
@@ -139,6 +140,7 @@ def buscar_producto(search):
 # POST /productos/ → Crear un producto
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
+@requiere_admin
 def crear_producto():
     conn = None
     try:
@@ -202,6 +204,7 @@ def crear_producto():
 # PUT /productos/<id> → Actualizar un producto
 # ─────────────────────────────────────────
 @bp.route("/<int:id_producto>", methods=["PUT"])
+@requiere_admin
 def actualizar_producto(id_producto):
     conn = None
     try:
@@ -270,6 +273,7 @@ def actualizar_producto(id_producto):
 # DELETE /productos/<id> → Eliminar un producto
 # ─────────────────────────────────────────
 @bp.route("/<int:id_producto>", methods=["DELETE"])
+@requiere_admin
 def eliminar_producto(id_producto):
     conn = None
     try:

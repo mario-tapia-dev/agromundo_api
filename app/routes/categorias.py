@@ -10,7 +10,6 @@ bp = Blueprint("categorias", __name__)
 # GET /categorias/ → Listar todas las categorías
 # ─────────────────────────────────────────
 @bp.route("/", methods=["GET"])
-@requiere_admin
 def listar_categorias():
     conn = None
     try:
@@ -35,7 +34,6 @@ def listar_categorias():
 # GET /categorias/<id> → Detalle de una categoría
 # ─────────────────────────────────────────
 @bp.route("/<int:id_cat>", methods=["GET"])
-@requiere_admin
 def obtener_categoria(id_cat):
     conn = None
     try:
