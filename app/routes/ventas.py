@@ -137,6 +137,7 @@ def obtener_venta(id_venta):
 # POST /ventas/ → Crear una venta
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
+@bp.route("/", methods=["POST"])
 def crear_venta():
     conn = None
     try:
@@ -144,25 +145,20 @@ def crear_venta():
         if data is None:
             return error(message="El cuerpo debe ser un JSON válido", status=400)
 
-        # Validar campos obligatorios
         if not data.get("precio_venta_final"):
             return error(message="El campo 'precio_venta_final' es obligatorio", status=400)
-
         detalle = data.get("detalle")
         if not detalle or not isinstance(detalle, list) or len(detalle) == 0:
             return error(message="El campo 'detalle' es obligatorio y debe ser un array con al menos un elemento", status=400)
 
-        # Validar campos obligatorios dentro de cada elemento del detalle
         for i, item in enumerate(detalle):
             for campo in ["id_producto", "cantidad_vendida", "precio_venta", "id_almacen"]:
                 if item.get(campo) is None:
                     return error(message=f"El campo '{campo}' es obligatorio en el elemento {i + 1} del detalle", status=400)
-                
             if item["cantidad_vendida"] <= 0:
                 return error(message=f"La cantidad_vendida debe ser mayor a 0 en el elemento {i + 1} del detalle", status=400)
-        
-        id_cliente = data.get("id_cliente")
 
+        id_cliente = data.get("id_cliente")
         conn = get_connection()
         cur = conn.cursor()
 
@@ -174,7 +170,6 @@ def crear_venta():
             cur.execute("SELECT id_cliente FROM clientes WHERE folio = 'PUB-001'")
             id_cliente = cur.fetchone()["id_cliente"]
 
-        # Validar stock disponible por cada elemento del detalle antes de procesar
         for item in detalle:
             cur.execute("""
                 SELECT i.stock, p.descripcion, a.nombre AS nombre_almacen
@@ -184,20 +179,17 @@ def crear_venta():
                 WHERE i.id_producto = %s AND i.id_almacen = %s
             """, (item["id_producto"], item["id_almacen"]))
             inventario = cur.fetchone()
-
             if inventario is None:
                 return error(
                     message=f"No hay inventario registrado para el producto {item['id_producto']} en el almacén {item['id_almacen']}",
                     status=404
                 )
-           
             if item["cantidad_vendida"] > inventario["stock"]:
                 return error(
                     message=f"Stock insuficiente para '{inventario['descripcion']}' en '{inventario['nombre_almacen']}'. Stock disponible: {inventario['stock']}",
-                status=422
+                    status=422
                 )
 
-        # Insertar la venta
         cur.execute("""
             INSERT INTO ventas (folio, precio_venta_final, id_estado, id_municipio, id_cliente)
             VALUES (%s, %s, %s, %s, %s)
@@ -211,69 +203,59 @@ def crear_venta():
         ))
         nuevo_id = cur.fetchone()["id_venta"]
 
-        # Procesar cada elemento del detalle
+        # ── Acumular alertas durante el loop, sin tocar SMTP ────────────────
+        alertas_pendientes = []
+
         for item in detalle:
-            # Insertar detalle de venta
             cur.execute("""
                 INSERT INTO detalle_venta (cantidad_vendida, precio_venta, id_venta, id_producto)
                 VALUES (%s, %s, %s, %s)
-            """, (
-                item["cantidad_vendida"],
-                item["precio_venta"],
-                nuevo_id,
-                item["id_producto"],
-            ))
+            """, (item["cantidad_vendida"], item["precio_venta"], nuevo_id, item["id_producto"]))
 
-            # Insertar movimiento de salida
             cur.execute("""
                 INSERT INTO movimientos_inventario (tipo, cantidad, id_venta, id_producto, id_almacen)
                 VALUES (%s, %s, %s, %s, %s)
-            """, (
-                False,
-                item["cantidad_vendida"],
-                nuevo_id,
-                item["id_producto"],
-                item["id_almacen"],
-            ))
+            """, (False, item["cantidad_vendida"], nuevo_id, item["id_producto"], item["id_almacen"]))
 
-            # Actualizar stock
             cur.execute("""
-                UPDATE inventarios SET
-                    stock = stock - %s
+                UPDATE inventarios SET stock = stock - %s
                 WHERE id_producto = %s AND id_almacen = %s
-            """, (
-                item["cantidad_vendida"],
-                item["id_producto"],
-                item["id_almacen"],
-            ))
+            """, (item["cantidad_vendida"], item["id_producto"], item["id_almacen"]))
 
-            # Verificar si se alcanzó el stock mínimo
             cur.execute("""
-                SELECT
-                    i.stock,
-                    i.min_stock,
-                    p.descripcion,
-                    a.nombre AS nombre_almacen
+                SELECT i.stock, i.min_stock, p.descripcion, a.nombre AS nombre_almacen
                 FROM inventarios i
                 LEFT JOIN productos p ON p.id_producto = i.id_producto
                 LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
                 WHERE i.id_producto = %s AND i.id_almacen = %s
             """, (item["id_producto"], item["id_almacen"]))
-            inventario_actualizado = cur.fetchone()
+            inv = cur.fetchone()
 
-            if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
-                try:
-                    enviar_alerta_stock(
-                    descripcion_producto=inventario_actualizado["descripcion"],
-                    nombre_almacen=inventario_actualizado["nombre_almacen"],
-                    stock_actual=inventario_actualizado["stock"],
-                    min_stock=inventario_actualizado["min_stock"]
-                )
-                except Exception as e:
-                    print(f"Error al enviar alerta de stock: {str(e)}")
+            if inv["stock"] <= inv["min_stock"]:
+                alertas_pendientes.append({
+                    "descripcion": inv["descripcion"],
+                    "nombre_almacen": inv["nombre_almacen"],
+                    "stock_actual": inv["stock"],
+                    "min_stock": inv["min_stock"],
+                })
 
+        # ── Commit: venta guardada antes de intentar cualquier correo ────────
         conn.commit()
+
+        # ── Correos fuera de la transacción ──────────────────────────────────
+        for alerta in alertas_pendientes:
+            try:
+                enviar_alerta_stock(
+                    descripcion_producto=alerta["descripcion"],
+                    nombre_almacen=alerta["nombre_almacen"],
+                    stock_actual=alerta["stock_actual"],
+                    min_stock=alerta["min_stock"],
+                )
+            except Exception as e:
+                print(f"Error al enviar alerta de stock: {str(e)}")
+
         return success(data={"id_venta": nuevo_id}, message="Venta creada correctamente", status=201)
+
     except Exception as e:
         if conn:
             conn.rollback()
@@ -293,23 +275,20 @@ def actualizar_venta(id_venta):
         data = request.get_json()
         if data is None:
             return error(message="El cuerpo debe ser un JSON válido", status=400)
-
         conn = get_connection()
         cur = conn.cursor()
 
-        # Verificar que la venta existe
         cur.execute("SELECT * FROM ventas WHERE id_venta = %s", (id_venta,))
         venta_actual = cur.fetchone()
         if venta_actual is None:
             return error(message="Venta no encontrada", status=404)
-        
+
         id_cliente = data.get("id_cliente", venta_actual["id_cliente"])
         if data.get("id_cliente") is not None:
             cur.execute("SELECT id_cliente FROM clientes WHERE id_cliente = %s", (id_cliente,))
             if cur.fetchone() is None:
                 return error(message="El cliente seleccionado no existe", status=404)
 
-        # Actualizar campos generales de la venta
         cur.execute("""
             UPDATE ventas SET
                 folio = %s,
@@ -318,32 +297,30 @@ def actualizar_venta(id_venta):
                 id_municipio = %s,
                 id_cliente = %s
             WHERE id_venta = %s
-            """, (
-                data.get("folio", venta_actual["folio"]),
-                data.get("precio_venta_final", venta_actual["precio_venta_final"]),
-                data.get("id_estado", venta_actual["id_estado"]),
-                data.get("id_municipio", venta_actual["id_municipio"]),
-                id_cliente,
-                id_venta,
-            ))
+        """, (
+            data.get("folio", venta_actual["folio"]),
+            data.get("precio_venta_final", venta_actual["precio_venta_final"]),
+            data.get("id_estado", venta_actual["id_estado"]),
+            data.get("id_municipio", venta_actual["id_municipio"]),
+            id_cliente,
+            id_venta,
+        ))
 
-        # Si viene nuevo detalle, reemplazar todo
+        # ── Acumular alertas durante el loop, sin tocar SMTP ────────────────
+        alertas_pendientes = []
+
         if "detalle" in data:
             detalle = data["detalle"]
-
             if not isinstance(detalle, list) or len(detalle) == 0:
                 return error(message="El campo 'detalle' debe ser un array con al menos un elemento", status=400)
 
-            # Validar campos obligatorios dentro de cada elemento del nuevo detalle
             for i, item in enumerate(detalle):
                 for campo in ["id_producto", "cantidad_vendida", "precio_venta", "id_almacen"]:
                     if item.get(campo) is None:
                         return error(message=f"El campo '{campo}' es obligatorio en el elemento {i + 1} del detalle", status=400)
-                    
                 if item["cantidad_vendida"] <= 0:
                     return error(message=f"La cantidad_vendida debe ser mayor a 0 en el elemento {i + 1} del detalle", status=400)
 
-            # Restaurar stock usando los movimientos anteriores de esta venta
             cur.execute("""
                 SELECT id_mov, cantidad, id_producto, id_almacen
                 FROM movimientos_inventario
@@ -352,19 +329,14 @@ def actualizar_venta(id_venta):
             movimientos_anteriores = cur.fetchall()
 
             for mov in movimientos_anteriores:
-                # Los movimientos de venta son siempre de tipo salida (false), restauramos sumando
                 cur.execute("""
-                    UPDATE inventarios SET
-                        stock = stock + %s
+                    UPDATE inventarios SET stock = stock + %s
                     WHERE id_producto = %s AND id_almacen = %s
                 """, (mov["cantidad"], mov["id_producto"], mov["id_almacen"]))
-
                 cur.execute("DELETE FROM movimientos_inventario WHERE id_mov = %s", (mov["id_mov"],))
 
-            # Eliminar detalle anterior
             cur.execute("DELETE FROM detalle_venta WHERE id_venta = %s", (id_venta,))
 
-            # Validar stock disponible con el nuevo detalle antes de procesar
             for item in detalle:
                 cur.execute("""
                     SELECT i.stock, p.descripcion, a.nombre AS nombre_almacen
@@ -374,79 +346,67 @@ def actualizar_venta(id_venta):
                     WHERE i.id_producto = %s AND i.id_almacen = %s
                 """, (item["id_producto"], item["id_almacen"]))
                 inventario = cur.fetchone()
-
                 if inventario is None:
                     return error(
                         message=f"No hay inventario registrado para el producto {item['id_producto']} en el almacén {item['id_almacen']}",
                         status=404
                     )
-           
                 if item["cantidad_vendida"] > inventario["stock"]:
                     return error(
                         message=f"Stock insuficiente para '{inventario['descripcion']}' en '{inventario['nombre_almacen']}'. Stock disponible: {inventario['stock']}",
                         status=422
                     )
 
-            # Insertar nuevo detalle y movimientos
             for item in detalle:
                 cur.execute("""
                     INSERT INTO detalle_venta (cantidad_vendida, precio_venta, id_venta, id_producto)
                     VALUES (%s, %s, %s, %s)
-                """, (
-                    item["cantidad_vendida"],
-                    item["precio_venta"],
-                    id_venta,
-                    item["id_producto"],
-                ))
+                """, (item["cantidad_vendida"], item["precio_venta"], id_venta, item["id_producto"]))
 
                 cur.execute("""
                     INSERT INTO movimientos_inventario (tipo, cantidad, id_venta, id_producto, id_almacen)
                     VALUES (%s, %s, %s, %s, %s)
-                """, (
-                    False,
-                    item["cantidad_vendida"],
-                    id_venta,
-                    item["id_producto"],
-                    item["id_almacen"],
-                ))
+                """, (False, item["cantidad_vendida"], id_venta, item["id_producto"], item["id_almacen"]))
 
                 cur.execute("""
-                    UPDATE inventarios SET
-                        stock = stock - %s
+                    UPDATE inventarios SET stock = stock - %s
                     WHERE id_producto = %s AND id_almacen = %s
-                """, (
-                    item["cantidad_vendida"],
-                    item["id_producto"],
-                    item["id_almacen"],
-                ))
+                """, (item["cantidad_vendida"], item["id_producto"], item["id_almacen"]))
 
-                # Verificar si se alcanzó el stock mínimo
                 cur.execute("""
-                    SELECT
-                        i.stock,
-                        i.min_stock,
-                        p.descripcion,
-                        a.nombre AS nombre_almacen
+                    SELECT i.stock, i.min_stock, p.descripcion, a.nombre AS nombre_almacen
                     FROM inventarios i
                     LEFT JOIN productos p ON p.id_producto = i.id_producto
                     LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
                     WHERE i.id_producto = %s AND i.id_almacen = %s
                 """, (item["id_producto"], item["id_almacen"]))
-                inventario_actualizado = cur.fetchone()
+                inv = cur.fetchone()
 
-                if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
-                    try:
-                        enviar_alerta_stock(
-                        descripcion_producto=inventario_actualizado["descripcion"],
-                        nombre_almacen=inventario_actualizado["nombre_almacen"],
-                        stock_actual=inventario_actualizado["stock"],
-                        min_stock=inventario_actualizado["min_stock"]
-                    )
-                    except Exception as e:
-                        print(f"Error al enviar alerta de stock: {str(e)}")
+                if inv["stock"] <= inv["min_stock"]:
+                    alertas_pendientes.append({
+                        "descripcion": inv["descripcion"],
+                        "nombre_almacen": inv["nombre_almacen"],
+                        "stock_actual": inv["stock"],
+                        "min_stock": inv["min_stock"],
+                    })
 
+        # ── Commit: venta actualizada antes de intentar cualquier correo ─────
         conn.commit()
+
+        # ── Correos fuera de la transacción ──────────────────────────────────
+        for alerta in alertas_pendientes:
+            try:
+                enviar_alerta_stock(
+                    descripcion_producto=alerta["descripcion"],
+                    nombre_almacen=alerta["nombre_almacen"],
+                    stock_actual=alerta["stock_actual"],
+                    min_stock=alerta["min_stock"],
+                )
+            except Exception as e:
+                print(f"Error al enviar alerta de stock: {str(e)}")
+
         return success(message="Venta actualizada correctamente")
+
     except Exception as e:
         if conn:
             conn.rollback()

@@ -112,9 +112,6 @@ def obtener_movimiento(id_mov):
             cur.close()
             conn.close()
 
-# ─────────────────────────────────────────
-# POST /movimientos/ → Crear un movimiento
-# ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
 def crear_movimiento():
     conn = None
@@ -123,12 +120,10 @@ def crear_movimiento():
         if data is None:
             return error(message="El cuerpo debe ser un JSON válido", status=400)
 
-        # Validar campos obligatorios
         campos_requeridos = ["cantidad", "id_producto", "id_almacen"]
         for campo in campos_requeridos:
             if not data.get(campo):
                 return error(message=f"El campo '{campo}' es obligatorio", status=400)
-
         if data.get("tipo") is None:
             return error(message="El campo 'tipo' es obligatorio", status=400)
         if data["cantidad"] <= 0:
@@ -137,27 +132,22 @@ def crear_movimiento():
         conn = get_connection()
         cur = conn.cursor()
 
-        # Verificar que el producto existe
         cur.execute("SELECT id_producto FROM productos WHERE id_producto = %s", (data["id_producto"],))
         if cur.fetchone() is None:
             return error(message="El producto seleccionado no existe", status=404)
 
-        # Verificar que el almacén existe
         cur.execute("SELECT id_almacen FROM almacenes WHERE id_almacen = %s", (data["id_almacen"],))
         if cur.fetchone() is None:
             return error(message="El almacén seleccionado no existe", status=404)
 
-        # Verificar que existe inventario para ese producto/almacén
         cur.execute("""
             SELECT * FROM inventarios
             WHERE id_producto = %s AND id_almacen = %s
         """, (data["id_producto"], data["id_almacen"]))
         inventario_actual = cur.fetchone()
-
         if inventario_actual is None:
             return error(message="No hay inventario registrado del producto seleccionado en el almacén seleccionado", status=404)
 
-        # Si es salida, validar stock suficiente
         if not data["tipo"]:
             if data["cantidad"] > inventario_actual["stock"]:
                 return error(
@@ -165,58 +155,55 @@ def crear_movimiento():
                     status=422
                 )
 
-        # Insertar movimiento
         cur.execute("""
             INSERT INTO movimientos_inventario (tipo, cantidad, id_producto, id_almacen)
             VALUES (%s, %s, %s, %s)
             RETURNING id_mov
-        """, (
-            data["tipo"],
-            data["cantidad"],
-            data["id_producto"],
-            data["id_almacen"],
-        ))
+        """, (data["tipo"], data["cantidad"], data["id_producto"], data["id_almacen"]))
         nuevo_id = cur.fetchone()["id_mov"]
 
-        # Actualizar stock según tipo
         modificador = 1 if data["tipo"] else -1
         cur.execute("""
-            UPDATE inventarios SET
-                stock = stock + %s
+            UPDATE inventarios SET stock = stock + %s
             WHERE id_producto = %s AND id_almacen = %s
-        """, (
-            data["cantidad"] * modificador,
-            data["id_producto"],
-            data["id_almacen"],
-        ))
+        """, (data["cantidad"] * modificador, data["id_producto"], data["id_almacen"]))
 
-        # Verificar si se alcanzó el stock mínimo
         cur.execute("""
-            SELECT
-                i.stock,
-                i.min_stock,
-                p.descripcion,
-                a.nombre AS nombre_almacen
+            SELECT i.stock, i.min_stock, p.descripcion, a.nombre AS nombre_almacen
             FROM inventarios i
             LEFT JOIN productos p ON p.id_producto = i.id_producto
             LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
             WHERE i.id_producto = %s AND i.id_almacen = %s
         """, (data["id_producto"], data["id_almacen"]))
-        inventario_actualizado = cur.fetchone()
+        inv = cur.fetchone()
 
-        if inventario_actualizado["stock"] <= inventario_actualizado["min_stock"]:
+        # ── Guardar datos de alerta antes del commit ─────────────────────────
+        alerta = None
+        if inv["stock"] <= inv["min_stock"]:
+            alerta = {
+                "descripcion": inv["descripcion"],
+                "nombre_almacen": inv["nombre_almacen"],
+                "stock_actual": inv["stock"],
+                "min_stock": inv["min_stock"],
+            }
+
+        # ── Commit: movimiento guardado antes de intentar el correo ─────────
+        conn.commit()
+
+        # ── Correo fuera de la transacción ───────────────────────────────────
+        if alerta:
             try:
                 enviar_alerta_stock(
-                descripcion_producto=inventario_actualizado["descripcion"],
-                nombre_almacen=inventario_actualizado["nombre_almacen"],
-                stock_actual=inventario_actualizado["stock"],
-                min_stock=inventario_actualizado["min_stock"]
-            )
+                    descripcion_producto=alerta["descripcion"],
+                    nombre_almacen=alerta["nombre_almacen"],
+                    stock_actual=alerta["stock_actual"],
+                    min_stock=alerta["min_stock"],
+                )
             except Exception as e:
                 print(f"Error al enviar alerta de stock: {str(e)}")
 
-        conn.commit()
         return success(data={"id_mov": nuevo_id}, message="Movimiento creado correctamente", status=201)
+
     except Exception as e:
         if conn:
             conn.rollback()
@@ -240,12 +227,8 @@ def actualizar_movimiento(id_mov):
         conn = get_connection()
         cur = conn.cursor()
 
-        # Verificar que el movimiento existe
-        cur.execute("""
-            SELECT * FROM movimientos_inventario WHERE id_mov = %s
-        """, (id_mov,))
+        cur.execute("SELECT * FROM movimientos_inventario WHERE id_mov = %s", (id_mov,))
         mov_actual = cur.fetchone()
-
         if mov_actual is None:
             return error(message="Movimiento no encontrado", status=404)
 
@@ -254,14 +237,13 @@ def actualizar_movimiento(id_mov):
         id_producto_nuevo = data.get("id_producto", mov_actual["id_producto"])
         id_almacen_nuevo = data.get("id_almacen", mov_actual["id_almacen"])
 
-        # Si vienen tipo o cantidad, hay que revertir el efecto original y aplicar el nuevo
-        if "tipo" in data or "cantidad" in data:
+        # ── Guardar datos de alerta antes del commit ─────────────────────────
+        alerta = None
 
-            # Revertir efecto original en inventario
+        if "tipo" in data or "cantidad" in data:
             modificador_revert = -1 if mov_actual["tipo"] else 1
             cur.execute("""
-                UPDATE inventarios SET
-                    stock = stock + %s
+                UPDATE inventarios SET stock = stock + %s
                 WHERE id_producto = %s AND id_almacen = %s
             """, (
                 mov_actual["cantidad"] * modificador_revert,
@@ -269,21 +251,18 @@ def actualizar_movimiento(id_mov):
                 mov_actual["id_almacen"],
             ))
 
-            # Si el nuevo movimiento es salida, validar stock suficiente
             if not tipo_nuevo:
                 cur.execute("""
                     SELECT stock FROM inventarios
                     WHERE id_producto = %s AND id_almacen = %s
                 """, (id_producto_nuevo, id_almacen_nuevo))
                 inventario = cur.fetchone()
-
                 if inventario is None:
                     return error(message="No hay inventario registrado del producto en el almacén seleccionado", status=404)
                 if cantidad_nueva > inventario["stock"]:
                     # Revertir la reversión antes de retornar el error
                     cur.execute("""
-                        UPDATE inventarios SET
-                            stock = stock + %s
+                        UPDATE inventarios SET stock = stock + %s
                         WHERE id_producto = %s AND id_almacen = %s
                     """, (
                         mov_actual["cantidad"] * (1 if mov_actual["tipo"] else -1),
@@ -295,7 +274,6 @@ def actualizar_movimiento(id_mov):
                         status=422
                     )
 
-            # Actualizar el movimiento
             cur.execute("""
                 UPDATE movimientos_inventario SET
                     tipo = %s,
@@ -305,44 +283,31 @@ def actualizar_movimiento(id_mov):
                 WHERE id_mov = %s
             """, (tipo_nuevo, cantidad_nueva, id_producto_nuevo, id_almacen_nuevo, id_mov))
 
-            # Aplicar nuevo efecto en inventario
             modificador_nuevo = 1 if tipo_nuevo else -1
             cur.execute("""
-                UPDATE inventarios SET
-                    stock = stock + %s
+                UPDATE inventarios SET stock = stock + %s
                 WHERE id_producto = %s AND id_almacen = %s
-            """, (
-                cantidad_nueva * modificador_nuevo,
-                id_producto_nuevo,
-                id_almacen_nuevo,
-            ))
+            """, (cantidad_nueva * modificador_nuevo, id_producto_nuevo, id_almacen_nuevo))
 
-            # Verificar si se alcanzó el stock mínimo
             cur.execute("""
-                SELECT
-                    i.stock,
-                    i.min_stock,
-                    p.descripcion,
-                    a.nombre AS nombre_almacen
+                SELECT i.stock, i.min_stock, p.descripcion, a.nombre AS nombre_almacen
                 FROM inventarios i
                 LEFT JOIN productos p ON p.id_producto = i.id_producto
                 LEFT JOIN almacenes a ON a.id_almacen = i.id_almacen
                 WHERE i.id_producto = %s AND i.id_almacen = %s
             """, (id_producto_nuevo, id_almacen_nuevo))
-            inventario_actualizado = cur.fetchone()
- 
-            try:
-                enviar_alerta_stock(
-                descripcion_producto=inventario_actualizado["descripcion"],
-                nombre_almacen=inventario_actualizado["nombre_almacen"],
-                stock_actual=inventario_actualizado["stock"],
-                min_stock=inventario_actualizado["min_stock"]
-            )
-            except Exception as e:
-                print(f"Error al enviar alerta de stock: {str(e)}")
+            inv = cur.fetchone()
+
+            # ── Fix: faltaba el if para verificar el mínimo ──────────────────
+            if inv["stock"] <= inv["min_stock"]:
+                alerta = {
+                    "descripcion": inv["descripcion"],
+                    "nombre_almacen": inv["nombre_almacen"],
+                    "stock_actual": inv["stock"],
+                    "min_stock": inv["min_stock"],
+                }
 
         else:
-            # Sin cambios de tipo/cantidad, solo actualizar campos restantes
             cur.execute("""
                 UPDATE movimientos_inventario SET
                     id_producto = %s,
@@ -350,8 +315,23 @@ def actualizar_movimiento(id_mov):
                 WHERE id_mov = %s
             """, (id_producto_nuevo, id_almacen_nuevo, id_mov))
 
+        # ── Commit: movimiento guardado antes de intentar el correo ─────────
         conn.commit()
+
+        # ── Correo fuera de la transacción ───────────────────────────────────
+        if alerta:
+            try:
+                enviar_alerta_stock(
+                    descripcion_producto=alerta["descripcion"],
+                    nombre_almacen=alerta["nombre_almacen"],
+                    stock_actual=alerta["stock_actual"],
+                    min_stock=alerta["min_stock"],
+                )
+            except Exception as e:
+                print(f"Error al enviar alerta de stock: {str(e)}")
+
         return success(message="Movimiento actualizado correctamente")
+
     except Exception as e:
         if conn:
             conn.rollback()
