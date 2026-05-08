@@ -154,30 +154,50 @@ def crear_inventario():
             conn.close()
 
 # ─────────────────────────────────────────
-# DELETE /inventarios/<id> → Eliminar un cliente
+# DELETE /inventarios/<id> → Eliminar un inventario
+# ─────────────────────────────────────────
+# ─────────────────────────────────────────
+# DELETE /inventarios/<id> → Eliminar inventario y sus movimientos
 # ─────────────────────────────────────────
 @bp.route("/<int:id_inventario>", methods=["DELETE"])
 @requiere_admin
-def eliminar_cliente(id_inventario):
+def eliminar_inventario(id_inventario):
     conn = None
+    cur = None
     try:
         conn = get_connection()
         cur = conn.cursor()
 
-        # Verificar que el cliente existe antes de eliminar
-        cur.execute("SELECT id_inventario FROM inventarios WHERE id_inventario = %s", (id_inventario,))
-        if cur.fetchone() is None:
+        cur.execute("""
+            SELECT id_producto, id_almacen 
+            FROM inventarios 
+            WHERE id_inventario = %s
+        """, (id_inventario,))
+        
+        row = cur.fetchone()
+        
+        if row is None:
             return error(message="Inventario no encontrado", status=404)
 
-        cur.execute("DELETE FROM movimientos_inventario WHERE id_inventario = %s", (id_inventario,))
+        id_prod = row['id_producto']
+        id_alm = row['id_almacen']
+
+        cur.execute("""
+            DELETE FROM movimientos_inventario 
+            WHERE id_producto = %s AND id_almacen = %s
+        """, (id_prod, id_alm))
+
         cur.execute("DELETE FROM inventarios WHERE id_inventario = %s", (id_inventario,))
+        
         conn.commit()
-        return success(message="Inventario eliminado correctamente")
+        return success(message="Inventario y movimientos eliminados correctamente")
+        
     except Exception as e:
         if conn:
             conn.rollback()
         return error(message=str(e), status=500)
     finally:
-        if conn:
+        if cur:
             cur.close()
+        if conn:
             conn.close()
