@@ -25,7 +25,7 @@ def listar_movimientos():
             FROM movimientos_inventario m
             LEFT JOIN productos p ON p.id_producto = m.id_producto
             LEFT JOIN almacenes a ON a.id_almacen = m.id_almacen
-            ORDER BY m.id_mov ASC
+            ORDER BY m.id_mov DESC
         """)
         movimientos = cur.fetchall()
         return success(data=movimientos, message="Movimientos obtenidos correctamente")
