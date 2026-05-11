@@ -30,6 +30,7 @@ def listar_productos():
             FROM productos p
             LEFT JOIN producto_categoria prod_cat ON prod_cat.id_prod = p.id_producto
             LEFT JOIN categorias c ON c.id_cat = prod_cat.id_cat
+            WHERE folio != %s
             GROUP BY
                 p.id_producto,
                 p.folio,
@@ -37,7 +38,7 @@ def listar_productos():
                 p.precio,
                 p.costo
             ORDER BY p.id_producto ASC
-        """)
+        """, ("PROD-GEN",))
         productos = cur.fetchall()
         return success(data=productos, message="Productos obtenidos correctamente")
     except Exception as e:
@@ -269,9 +270,9 @@ def actualizar_producto(id_producto):
             cur.close()
             conn.close()
  
-# ─────────────────────────────────────────
-# DELETE /productos/<id> → Eliminar un producto
-# ─────────────────────────────────────────
+#  ─────────────────────────────────────────
+#  DELETE /productos/<id> → Eliminar un producto
+#  ─────────────────────────────────────────
 @bp.route("/<int:id_producto>", methods=["DELETE"])
 @requiere_admin
 def eliminar_producto(id_producto):
@@ -281,12 +282,40 @@ def eliminar_producto(id_producto):
         cur = conn.cursor()
  
         # Verificar que el producto existe antes de eliminar
-        cur.execute("SELECT id_producto FROM productos WHERE id_producto = %s", (id_producto,))
-        if cur.fetchone() is None:
-            return error(message="Producto no encontrado", status=404)
- 
+        cur.execute("SELECT id_producto, folio FROM productos WHERE id_producto = %s", (id_producto,))
+        producto = cur.fetchone()
+
+        if producto is None:
+            return error(
+                message="Producto no encontrado",
+                status=404
+            )
+        
+        if producto["folio"] == "PROD-GEN":
+            return error(
+                message="El producto genérico no puede eliminarse",
+                status=403
+            )
+
+        cur.execute("""
+            SELECT id_producto FROM productos WHERE folio = %s
+        """, ("PROD-GEN",))
+        producto_generico = cur.fetchone()
+
+        if producto_generico is None:
+            return error(message="No se encuentra el producto genérico, confirmar con el administrador de sistemas", status = 404)
+        
+        cur.execute("""
+            UPDATE detalle_venta SET
+                id_producto = %s
+            WHERE id_producto = %s
+        """, (
+            producto_generico["id_producto"], id_producto
+        ))
+
         cur.execute("DELETE FROM producto_categoria WHERE id_prod = %s", (id_producto,))
         cur.execute("DELETE FROM producto_subcategoria WHERE id_producto = %s", (id_producto,))
+        cur.execute("DELETE FROM movimientos_inventario WHERE id_producto = %s", (id_producto,))
         cur.execute("DELETE FROM inventarios WHERE id_producto = %s", (id_producto,))
         cur.execute("DELETE FROM productos WHERE id_producto = %s", (id_producto,))
  
