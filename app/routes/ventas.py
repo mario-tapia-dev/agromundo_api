@@ -137,7 +137,6 @@ def obtener_venta(id_venta):
 # POST /ventas/ → Crear una venta
 # ─────────────────────────────────────────
 @bp.route("/", methods=["POST"])
-@bp.route("/", methods=["POST"])
 def crear_venta():
     conn = None
     try:
@@ -180,8 +179,19 @@ def crear_venta():
             """, (item["id_producto"], item["id_almacen"]))
             inventario = cur.fetchone()
             if inventario is None:
+                cur.execute("""
+                    SELECT
+                        p.descripcion,
+                        a.nombre AS nombre_almacen
+                    FROM productos p
+                    WHERE p.id_producto = %s
+                    AND a.id_almacen = %s
+                """, (item["id_producto"], item["id_almacen"]))
+
+                info = cur.fetchone()
+
                 return error(
-                    message=f"No hay inventario registrado para el producto {item['id_producto']} en el almacén {item['id_almacen']}",
+                    message=f"No hay inventario registrado para '{info['descripcion']}' en el almacén '{info['nombre_almacen']}'",
                     status=404
                 )
             if item["cantidad_vendida"] > inventario["stock"]:
