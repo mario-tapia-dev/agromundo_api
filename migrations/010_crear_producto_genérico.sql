@@ -1,0 +1,1 @@
+INSERT INTO productos (folio, descripcion, costo, precio) VALUES ('PROD-GEN', 'Producto genérico usado como referencia en ventas', 1, 1);

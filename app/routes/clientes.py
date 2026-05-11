@@ -25,9 +25,9 @@ def listar_clientes():
                 telefono,
                 email
             FROM clientes
-            WHERE id_cliente != %s
+            WHERE folio != %s
             ORDER BY id_cliente ASC
-        """, (1,))
+        """, ("PUB-001",))
         clientes = cur.fetchall()
         return success(data=clientes, message="Clientes obtenidos correctamente")
     except Exception as e:
@@ -134,7 +134,7 @@ def crear_cliente():
         data = request.get_json()
 
         # Validar campos obligatorios
-        campos_requeridos = ["folio", "nombre", "apellido_paterno", "telefono", "email"]
+        campos_requeridos = ["folio", "nombre"]
         for campo in campos_requeridos:
             if not data.get(campo):
                 return error(message=f"El campo '{campo}' es obligatorio", status=400)
@@ -179,27 +179,30 @@ def crear_cliente():
         if cur.fetchone() is not None:
             return error(message="El folio asignado ya existe, coloque otro diferente", status=409)
 
-        # Verificar que el telefono no esté repetido
-        cur.execute("""
-        SELECT
-            telefono
-        FROM clientes
-        WHERE telefono = %s 
-        """, (data["telefono"],))
+        # Verificar que el telefono no esté repetido si viene
+        if data.get("telefono") is not None:
+            cur.execute("""
+                SELECT
+                    telefono
+                FROM clientes
+                WHERE telefono = %s 
+                """, (data["telefono"],))
         
-        if cur.fetchone() is not None:
-            return error(message="El telefono asignado ya existe, coloque otro diferente", status=409)
+            if cur.fetchone() is not None:
+                return error(message="El telefono asignado ya existe, coloque otro diferente", status=409)
         
-        # Verificar que el email no esté repetido
-        cur.execute("""
-        SELECT
-            email
-        FROM clientes
-        WHERE email = %s 
-        """, (data["email"],))
+        # Verificar que el email no esté repetido si viene
+        if data.get("email") is not None:
+            cur.execute("""
+                SELECT
+                    email
+                FROM clientes
+                WHERE email = %s 
+                """, (data["email"],))
         
-        if cur.fetchone() is not None:
-            return error(message="El email asignado ya existe, coloque otro diferente", status=409)
+            if cur.fetchone() is not None:
+                return error(message="El email asignado ya existe, coloque otro diferente", status=409)
+        
 
         cur.execute("""
             INSERT INTO clientes (
@@ -210,12 +213,12 @@ def crear_cliente():
         """, (
             data["folio"],
             data["nombre"],
-            data["apellido_paterno"],
+            data.get("apellido_paterno"),  # Opcional
             data.get("apellido_materno"),  # Opcional
-            data["telefono"],
-            data["email"],
+            data.get("telefono"),          # Opcional
+            data.get("email"),             # Opcional
             data.get("id_estado"),         # Opcional
-            data.get("id_municipio"),       # Opcional
+            data.get("id_municipio"),      # Opcional
         ))
 
         nuevo_id = cur.fetchone()["id_cliente"]
