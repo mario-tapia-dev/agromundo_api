@@ -258,20 +258,71 @@ def actualizar_almacen(id_almacen):
 def eliminar_almacen(id_almacen):
     conn = None
     try:
+        data = request.get_json()
+        if data is None or not data.get("id_almacen_destino"):
+            return error(message="El campo 'id_almacen_destino' es obligatorio", status=400)
+
+        id_almacen_destino = data["id_almacen_destino"]
+
+        if id_almacen == id_almacen_destino:
+            return error(message="El almacén destino no puede ser el mismo que el almacén a eliminar", status=400)
+
         conn = get_connection()
         cur = conn.cursor()
 
-        # Verificar que el almacén existe antes de eliminar
+        # Verificar que el almacén existe
         cur.execute("SELECT id_almacen FROM almacenes WHERE id_almacen = %s", (id_almacen,))
         if cur.fetchone() is None:
             return error(message="Almacén no encontrado", status=404)
 
+        # Verificar que el almacén destino existe
+        cur.execute("SELECT id_almacen FROM almacenes WHERE id_almacen = %s", (id_almacen_destino,))
+        if cur.fetchone() is None:
+            return error(message="El almacén destino no existe", status=404)
+
+        # Verificar que no sea el único almacén
+        cur.execute("SELECT COUNT(*) AS total FROM almacenes")
+        total = cur.fetchone()["total"]
+        if total <= 1:
+            return error(message="No se puede eliminar el almacén ya que es el único disponible en el sistema", status=400)
+
+        # Traer inventarios del almacén a eliminar
+        cur.execute("""
+            SELECT id_producto, id_almacen, stock, min_stock
+            FROM inventarios
+            WHERE id_almacen = %s
+        """, (id_almacen,))
+        inventarios = cur.fetchall()
+
+        for inv in inventarios:
+            # Verificar si ya existe un inventario del mismo producto en el almacén destino
+            cur.execute("""
+                SELECT id_inventario, stock FROM inventarios
+                WHERE id_producto = %s AND id_almacen = %s
+            """, (inv["id_producto"], id_almacen_destino))
+            inv_destino = cur.fetchone()
+
+            if inv_destino is not None:
+                # Ya existe, sumar el stock
+                cur.execute("""
+                    UPDATE inventarios SET
+                        stock = stock + %s
+                    WHERE id_producto = %s AND id_almacen = %s
+                """, (inv["stock"], inv["id_producto"], id_almacen_destino))
+            else:
+                # No existe, crear el inventario en el almacén destino
+                cur.execute("""
+                    INSERT INTO inventarios (id_producto, id_almacen, stock, min_stock)
+                    VALUES (%s, %s, %s, %s)
+                """, (inv["id_producto"], id_almacen_destino, inv["stock"], inv["min_stock"]))
+
+        cur.execute("DELETE FROM movimientos_inventario WHERE id_almacen = %s", (id_almacen,))
         cur.execute("DELETE FROM almacen_categoria WHERE id_almacen = %s", (id_almacen,))
         cur.execute("DELETE FROM inventarios WHERE id_almacen = %s", (id_almacen,))
         cur.execute("DELETE FROM almacenes WHERE id_almacen = %s", (id_almacen,))
 
         conn.commit()
-        return success(message="Almacén eliminado correctamente")
+        return success(message="Almacén eliminado correctamente y su inventario fue transferido al almacén destino")
     except Exception as e:
         if conn:
             conn.rollback()
