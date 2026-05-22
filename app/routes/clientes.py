@@ -374,12 +374,30 @@ def eliminar_cliente(id_cliente):
         cur = conn.cursor()
 
         # Verificar que el cliente existe antes de eliminar
-        cur.execute("SELECT id_cliente FROM clientes WHERE id_cliente = %s", (id_cliente,))
-        if cur.fetchone() is None:
+        cur.execute("SELECT id_cliente, folio FROM clientes WHERE id_cliente = %s", (id_cliente,))
+        cliente = cur.fetchone()
+        if cliente is None:
             return error(message="Cliente no encontrado", status=404)
+
+        # No permitir eliminar al cliente público general
+        if cliente["folio"] == "PUB-001":
+            return error(message="El cliente público general no puede eliminarse", status=403)
+
+        # Traer id del cliente público general
+        cur.execute("SELECT id_cliente FROM clientes WHERE folio = 'PUB-001'")
+        cliente_publico = cur.fetchone()
+        if cliente_publico is None:
+            return error(message="No se encuentra el cliente público general, confirmar con el administrador de sistemas", status=404)
+
+        # Reasignar ventas al cliente público general
+        cur.execute("""
+            UPDATE ventas SET id_cliente = %s
+            WHERE id_cliente = %s
+        """, (cliente_publico["id_cliente"], id_cliente))
 
         cur.execute("DELETE FROM clientes_categoria WHERE id_cliente = %s", (id_cliente,))
         cur.execute("DELETE FROM clientes WHERE id_cliente = %s", (id_cliente,))
+
         conn.commit()
         return success(message="Cliente eliminado correctamente")
     except Exception as e:
