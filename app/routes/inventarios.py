@@ -54,8 +54,7 @@ def obtener_inventario(id_inventario):
             almacenes.nombre AS nombre_almacen,
             productos.folio AS folio_producto,
             productos.descripcion AS descripcion_producto,
-            productos.costo AS costo_producto,
-            productos.precio AS precio_producto
+            productos.costo AS costo_producto
         FROM inventarios
         LEFT JOIN almacenes ON almacenes.id_almacen = inventarios.id_almacen
         LEFT JOIN productos ON productos.id_producto = inventarios.id_producto
