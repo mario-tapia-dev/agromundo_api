@@ -68,14 +68,13 @@ def kpis():
         """, fecha_params)
         producto_mas_vendido = cur.fetchone()
 
-        # Cliente principal por importe total de ventas (excluyendo público general)
+        # Cliente principal por importe total de ventas 
         cur.execute(f"""
             SELECT
                 c.nombre || ' ' || c.apellido_paterno AS cliente,
                 SUM(v.precio_venta_final) AS total_ventas_cliente
             FROM ventas v
             LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
-            WHERE c.folio != 'PUB-001' {fecha_sql}
             GROUP BY c.id_cliente, c.nombre, c.apellido_paterno
             ORDER BY total_ventas_cliente DESC
             LIMIT 1
@@ -208,7 +207,6 @@ def ventas_por_cliente():
             LEFT JOIN clientes c ON c.id_cliente = v.id_cliente
             LEFT JOIN detalle_venta dv ON dv.id_venta = v.id_venta
             LEFT JOIN productos p ON p.id_producto = dv.id_producto
-            WHERE c.folio != 'PUB-001' {fecha_sql}
             GROUP BY c.id_cliente, c.nombre, c.apellido_paterno
             HAVING SUM(dv.cantidad_vendida) > 0
             ORDER BY utilidad_total DESC
