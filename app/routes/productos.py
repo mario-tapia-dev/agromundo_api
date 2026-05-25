@@ -245,7 +245,7 @@ def crear_producto():
 
         # Insertar precios por margen
         for margen in margenes:
-            precio_margen = data["costo"] * (1 + margen / 100)
+            precio_margen = data["costo"] / ( 1 - (margen / 100))
             cur.execute("""
                 INSERT INTO productos_precios (id_producto, margen, precio_margen)
                 VALUES (%s, %s, %s)
@@ -320,7 +320,7 @@ def actualizar_producto(id_producto):
 
             cur.execute("DELETE FROM productos_precios WHERE id_producto = %s", (id_producto,))
             for margen in data["margenes"]:
-                precio_margen = costo_actual * (1 + margen / 100)
+                precio_margen = costo_actual / ( 1 - (margen / 100))
                 cur.execute("""
                     INSERT INTO productos_precios (id_producto, margen, precio_margen)
                     VALUES (%s, %s, %s)

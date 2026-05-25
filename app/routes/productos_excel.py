@@ -24,28 +24,19 @@ def descargar_plantilla(id_cat):
         if categoria is None:
             return error(message="La categoría seleccionada no existe", status=404)
 
-        # Traer subcategorías de esa categoría
-        cur.execute("""
-            SELECT s.id_subcat, s.nombre, s.descripcion, s.unidad
-            FROM subcategorias s
-            LEFT JOIN categoria_subcategoria cs ON cs.id_subcat = s.id_subcat
-            WHERE cs.id_cat = %s
-            ORDER BY s.id_subcat ASC
-        """, (id_cat,))
-        subcategorias = cur.fetchall()
-
         wb = Workbook()
 
         # ── Hoja principal: Productos ──
         ws_productos = wb.active
         ws_productos.title = "Productos"
 
-        # Estilo de encabezados
         header_font = Font(bold=True, color="FFFFFF")
         header_fill = PatternFill("solid", start_color="2F5496")
         header_alignment = Alignment(horizontal="center", vertical="center")
+        ejemplo_font = Font(italic=True, color="808080")
+        nota_font = Font(italic=True, color="595959")
 
-        encabezados = ["folio", "descripcion", "precio", "costo", "subcategorias_ids"]
+        encabezados = ["folio", "descripcion", "costo", "moneda", "margenes"]
         for col, encabezado in enumerate(encabezados, start=1):
             cell = ws_productos.cell(row=1, column=col, value=encabezado)
             cell.font = header_font
@@ -53,62 +44,29 @@ def descargar_plantilla(id_cat):
             cell.alignment = header_alignment
 
         # Fila de ejemplo
-        ejemplo_font = Font(italic=True, color="808080")
-        ejemplos = [
-            "PROD-001",
-            "Descripción del producto",
-            100.00,
-            50.00,
-            "1,2,3" if subcategorias else ""
-        ]
+        ejemplos = ["PROD-001", "Descripción del producto", 50.00, "MXN", "10,20,30"]
         for col, valor in enumerate(ejemplos, start=1):
             cell = ws_productos.cell(row=2, column=col, value=valor)
             cell.font = ejemplo_font
 
-        # Ancho de columnas
         ws_productos.column_dimensions["A"].width = 15
         ws_productos.column_dimensions["B"].width = 35
         ws_productos.column_dimensions["C"].width = 12
-        ws_productos.column_dimensions["D"].width = 12
+        ws_productos.column_dimensions["D"].width = 10
         ws_productos.column_dimensions["E"].width = 25
 
-        # Nota informativa
         ws_productos.cell(row=4, column=1, value="NOTAS:").font = Font(bold=True)
-        ws_productos.cell(row=5, column=1, value=f"• Todos los productos se registrarán en la categoría: {categoria['nombre']}")
-        ws_productos.cell(row=6, column=1, value="• Los campos 'folio' y 'costo' son obligatorios.")
-        ws_productos.cell(row=7, column=1, value="• En 'subcategorias_ids' escribe los IDs separados por coma. Ejemplo: 1,3,5")
-        ws_productos.cell(row=8, column=1, value="• Consulta la hoja 'Catálogo Subcategorías' para ver los IDs disponibles.")
-        ws_productos.cell(row=9, column=1, value="• Borra la fila de ejemplo (fila 2) antes de subir el archivo.")
+        notas = [
+            f"• Todos los productos se registrarán en la categoría: {categoria['nombre']}",
+            "• Los campos 'folio', 'costo', 'moneda' y 'margenes' son obligatorios.",
+            "• 'moneda' debe ser 'MXN' para pesos o 'USD' para dólares.",
+            "• En 'margenes' escribe los porcentajes separados por coma. Ejemplo: 10,20,30",
+            "• Borra la fila de ejemplo (fila 2) antes de subir el archivo."
+        ]
+        for i, nota in enumerate(notas, start=5):
+            cell = ws_productos.cell(row=i, column=1, value=nota)
+            cell.font = nota_font
 
-        for row in range(4, 10):
-            ws_productos.cell(row=row, column=1).font = Font(italic=True, color="595959")
-
-        # ── Hoja catálogo: Subcategorías ──
-        ws_subcat = wb.create_sheet(title="Catálogo Subcategorías")
-
-        cat_encabezados = ["id_subcat", "nombre", "descripcion", "unidad"]
-        for col, encabezado in enumerate(cat_encabezados, start=1):
-            cell = ws_subcat.cell(row=1, column=col, value=encabezado)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = header_alignment
-
-        if subcategorias:
-            for row, subcat in enumerate(subcategorias, start=2):
-                ws_subcat.cell(row=row, column=1, value=subcat["id_subcat"])
-                ws_subcat.cell(row=row, column=2, value=subcat["nombre"])
-                ws_subcat.cell(row=row, column=3, value=subcat["descripcion"])
-                ws_subcat.cell(row=row, column=4, value=subcat["unidad"])
-        else:
-            ws_subcat.cell(row=2, column=1, value="No hay subcategorías registradas para esta categoría.")
-            ws_subcat.cell(row=2, column=1).font = Font(italic=True, color="808080")
-
-        ws_subcat.column_dimensions["A"].width = 12
-        ws_subcat.column_dimensions["B"].width = 25
-        ws_subcat.column_dimensions["C"].width = 35
-        ws_subcat.column_dimensions["D"].width = 15
-
-        # Guardar en memoria y enviar
         buffer = BytesIO()
         wb.save(buffer)
         buffer.seek(0)
@@ -135,7 +93,6 @@ def descargar_plantilla(id_cat):
 def carga_masiva(id_cat):
     conn = None
     try:
-        # Verificar que viene el archivo
         if "archivo" not in request.files:
             return error(message="No se encontró el archivo en la solicitud", status=400)
 
@@ -148,28 +105,24 @@ def carga_masiva(id_cat):
         conn = get_connection()
         cur = conn.cursor()
 
-        # Verificar que la categoría existe
         cur.execute("SELECT id_cat, nombre FROM categorias WHERE id_cat = %s", (id_cat,))
         categoria = cur.fetchone()
         if categoria is None:
             return error(message="La categoría seleccionada no existe", status=404)
 
-        # Leer el archivo Excel
         wb = load_workbook(archivo, data_only=True)
         ws = wb.active
 
         errores = []
         productos_a_crear = []
 
-        # Validar todas las filas antes de insertar cualquier cosa
         for num_fila, fila in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
-            # Ignorar filas completamente vacías y las filas de notas (columna A empieza con •)
             if not any(fila):
                 continue
             if str(fila[0] or "").startswith("•") or str(fila[0] or "").strip() in ["NOTAS:", ""]:
                 continue
 
-            folio, descripcion, precio, costo, subcategorias_raw = (list(fila) + [None] * 5)[:5]
+            folio, descripcion, costo, moneda, margenes_raw = (list(fila) + [None] * 5)[:5]
 
             # Validar campos obligatorios
             if not folio:
@@ -177,6 +130,15 @@ def carga_masiva(id_cat):
                 continue
             if not costo:
                 errores.append({"fila": num_fila, "motivo": "El campo 'costo' es obligatorio"})
+                continue
+            if not moneda:
+                errores.append({"fila": num_fila, "motivo": "El campo 'moneda' es obligatorio"})
+                continue
+            if str(moneda).upper() not in ["MXN", "USD"]:
+                errores.append({"fila": num_fila, "motivo": f"El campo 'moneda' debe ser 'MXN' o 'USD'"})
+                continue
+            if not margenes_raw:
+                errores.append({"fila": num_fila, "motivo": "El campo 'margenes' es obligatorio"})
                 continue
 
             # Verificar folio duplicado en BD
@@ -191,25 +153,24 @@ def carga_masiva(id_cat):
                 errores.append({"fila": num_fila, "motivo": f"El folio '{folio}' está duplicado en el archivo"})
                 continue
 
-            # Parsear subcategorías
-            subcategorias_ids = []
-            if subcategorias_raw:
-                try:
-                    subcategorias_ids = [int(id.strip()) for id in str(subcategorias_raw).split(",") if id.strip()]
-                except ValueError:
-                    errores.append({"fila": num_fila, "motivo": "El campo 'subcategorias_ids' contiene valores inválidos, deben ser números separados por coma"})
-                    continue
+            # Parsear márgenes
+            try:
+                margenes = [int(m.strip()) for m in str(margenes_raw).split(",") if m.strip()]
+                if len(margenes) == 0:
+                    raise ValueError
+            except ValueError:
+                errores.append({"fila": num_fila, "motivo": "El campo 'margenes' contiene valores inválidos, deben ser números enteros separados por coma"})
+                continue
 
             productos_a_crear.append({
                 "folio": str(folio),
                 "descripcion": descripcion,
-                "precio": precio,
                 "costo": costo,
-                "subcategorias_ids": subcategorias_ids,
+                "moneda": str(moneda).upper(),
+                "margenes": margenes,
                 "fila": num_fila
             })
 
-        # Si hay errores, no crear nada y reportar
         if errores:
             return error(
                 message=f"Se encontraron {len(errores)} error(es) en el archivo. No se creó ningún producto.",
@@ -220,18 +181,17 @@ def carga_masiva(id_cat):
         if not productos_a_crear:
             return error(message="El archivo no contiene productos para registrar", status=400)
 
-        # Insertar todos los productos
         ids_creados = []
         for producto in productos_a_crear:
             cur.execute("""
-                INSERT INTO productos (folio, descripcion, precio, costo)
+                INSERT INTO productos (folio, descripcion, costo, moneda)
                 VALUES (%s, %s, %s, %s)
                 RETURNING id_producto
             """, (
                 producto["folio"],
                 producto["descripcion"],
-                producto["precio"],
                 producto["costo"],
+                producto["moneda"],
             ))
             nuevo_id = cur.fetchone()["id_producto"]
 
@@ -241,12 +201,13 @@ def carga_masiva(id_cat):
                 VALUES (%s, %s)
             """, (nuevo_id, id_cat))
 
-            # Asignar subcategorías
-            for id_subcat in producto["subcategorias_ids"]:
+            # Calcular e insertar precios por margen
+            for margen in producto["margenes"]:
+                precio_margen = producto["costo"] / (1 - (margen / 100))
                 cur.execute("""
-                    INSERT INTO producto_subcategoria (id_producto, id_subcat)
-                    VALUES (%s, %s)
-                """, (nuevo_id, id_subcat))
+                    INSERT INTO productos_precios (id_producto, margen, precio_margen)
+                    VALUES (%s, %s, %s)
+                """, (nuevo_id, margen, round(precio_margen, 2)))
 
             ids_creados.append(nuevo_id)
 
