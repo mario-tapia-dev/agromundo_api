@@ -46,25 +46,40 @@ def obtener_inventario(id_inventario):
         conn = get_connection()
         cur = conn.cursor()
         cur.execute("""
-        SELECT 
-            inventarios.id_inventario,
-            inventarios.stock,
-            inventarios.min_stock,
-            almacenes.folio AS folio_almacen,
-            almacenes.nombre AS nombre_almacen,
-            productos.folio AS folio_producto,
-            productos.descripcion AS descripcion_producto,
-            productos.costo AS costo_producto
-        FROM inventarios
-        LEFT JOIN almacenes ON almacenes.id_almacen = inventarios.id_almacen
-        LEFT JOIN productos ON productos.id_producto = inventarios.id_producto
-        WHERE id_inventario = %s
+            SELECT
+                inventarios.id_inventario,
+                inventarios.stock,
+                inventarios.min_stock,
+                almacenes.folio AS folio_almacen,
+                almacenes.nombre AS nombre_almacen,
+                productos.id_producto,
+                productos.folio AS folio_producto,
+                productos.descripcion AS descripcion_producto,
+                productos.costo AS costo_producto,
+                productos.moneda
+            FROM inventarios
+            LEFT JOIN almacenes ON almacenes.id_almacen = inventarios.id_almacen
+            LEFT JOIN productos ON productos.id_producto = inventarios.id_producto
+            WHERE id_inventario = %s
         """, (id_inventario,))
-
         inventario = cur.fetchone()
+
         if inventario is None:
             return error(message="Inventario no encontrado", status=404)
-        return success(data=inventario, message="Inventario obtenido correctamente")
+
+        # Traer precios del producto
+        cur.execute("""
+            SELECT precio_margen
+            FROM productos_precios
+            WHERE id_producto = %s
+            ORDER BY precio_margen ASC
+        """, (inventario["id_producto"],))
+        precios = [row["precio_margen"] for row in cur.fetchall()]
+
+        resultado = dict(inventario)
+        resultado["precios"] = precios
+
+        return success(data=resultado, message="Inventario obtenido correctamente")
     except Exception as e:
         return error(message=str(e), status=500)
     finally:
